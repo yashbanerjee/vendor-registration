@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { moduleByKey, type FieldConfig } from "@/config/modules"
+import { moduleByKey } from "@/config/modules"
+import { Field, newRecordPath, type Lookups } from "@/components/crm/record-form"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,18 +19,6 @@ import { can } from "@/lib/permissions"
 import type { PublicUser } from "@/lib/types"
 
 type Row = Record<string, unknown> & { id?: string }
-
-type Lookups = {
-  vendors?: { id: string; legalName: string }[]
-  events?: { id: string; name: string }[]
-  categories?: { id: string; name: string }[]
-  terms?: { id: string; name: string }[]
-  emirates?: { name: string }[]
-  users?: { id: string; name: string }[]
-  documentTypes?: { id: string; name: string }[]
-  roles?: { id: string; name: string }[]
-  rfqs?: { id: string; number: string; title: string }[]
-}
 
 export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { portal: "admin" | "vendor"; moduleKey: string; user: PublicUser; currency?: string }) {
   const config = moduleByKey(moduleKey === "support" ? "support" : moduleKey)
@@ -101,15 +90,6 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
 
   if (!config) {
     return <Card className="p-8"><h1 className="text-xl font-semibold">This page is not available</h1><p className="mt-2 text-sm text-muted-foreground">The module is not part of this workspace.</p></Card>
-  }
-
-  function openCreate() {
-    setEditing(null)
-    setForm({})
-    setLines([{ description: "", quantity: "1", unitPrice: "0" }])
-    setVendorIds([])
-    setFileId("")
-    setOpen(true)
   }
 
   function openEdit(row: Row) {
@@ -207,7 +187,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
             }}>Compare quotes</Button>
           )}
           {moduleKey === "gate-passes" && portal === "admin" && <Button variant="outline" asChild><Link href="/admin/gate-passes/scan">Scan a pass</Link></Button>}
-          {canCreate && <Button onClick={openCreate}>New</Button>}
+          {canCreate && <Button asChild><Link href={newRecordPath(portal, moduleKey)}>{moduleKey === "vendors" ? "Register vendor" : "New"}</Link></Button>}
         </div>
       </div>
 
@@ -256,7 +236,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
         <Card className="p-10 text-center">
           <h2 className="font-medium">Nothing here yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">Records will appear after they are created or submitted.</p>
-          {canCreate && <Button className="mt-4" onClick={openCreate}>Create the first record</Button>}
+          {canCreate && <Button className="mt-4" asChild><Link href={newRecordPath(portal, moduleKey)}>{moduleKey === "vendors" ? "Register a vendor" : "Create the first record"}</Link></Button>}
         </Card>
       ) : (
         <>
@@ -316,7 +296,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit" : "Create"} {config.title.toLowerCase()}</DialogTitle>
+            <DialogTitle>Edit {config.title.toLowerCase()}</DialogTitle>
           </DialogHeader>
           <form className="grid gap-3 md:grid-cols-2" onSubmit={submit}>
             {config.fields.map((field) => (
@@ -395,76 +375,6 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
       </Dialog>
     </div>
   )
-}
-
-function Field({ field, form, setForm, lookups, vendorIds, setVendorIds, lines, setLines }: {
-  field: FieldConfig
-  form: Record<string, string>
-  setForm: (value: Record<string, string>) => void
-  lookups: Lookups
-  vendorIds: string[]
-  setVendorIds: (value: string[]) => void
-  lines: { description: string; quantity: string; unitPrice: string }[]
-  setLines: (value: { description: string; quantity: string; unitPrice: string }[]) => void
-}) {
-  const wide = field.type === "textarea" || field.type === "lines" || field.type === "vendors"
-  return (
-    <div className={wide ? "md:col-span-2" : ""}>
-      <Label>{field.label}</Label>
-      <div className="mt-1">
-        {field.type === "textarea" ? <Textarea value={form[field.name] || ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} /> : null}
-        {field.type === "select" ? (
-          <Select value={form[field.name] || ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}>
-            <option value="">Select</option>
-            {field.options?.map((option) => <option key={option} value={option}>{labelize(option)}</option>)}
-          </Select>
-        ) : null}
-        {field.type === "lookup" ? (
-          <Select value={form[field.name] || ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })}>
-            <option value="">Select</option>
-            {optionsFor(field, lookups).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </Select>
-        ) : null}
-        {field.type === "vendors" ? (
-          <div className="max-h-40 space-y-1 overflow-auto rounded-lg border border-border p-2">
-            {(lookups.vendors || []).map((vendor) => (
-              <label key={vendor.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={vendorIds.includes(vendor.id)} onChange={(event) => setVendorIds(event.target.checked ? [...vendorIds, vendor.id] : vendorIds.filter((id) => id !== vendor.id))} />
-                {vendor.legalName}
-              </label>
-            ))}
-          </div>
-        ) : null}
-        {field.type === "lines" ? (
-          <div className="space-y-2">
-            {lines.map((line, index) => (
-              <div key={index} className="grid grid-cols-3 gap-2">
-                <Input placeholder="Description" value={line.description} onChange={(event) => setLines(lines.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item))} />
-                <Input placeholder="Qty" type="number" value={line.quantity} onChange={(event) => setLines(lines.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} />
-                <Input placeholder="Price" type="number" value={line.unitPrice} onChange={(event) => setLines(lines.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} />
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setLines([...lines, { description: "", quantity: "1", unitPrice: "0" }])}>Add line</Button>
-          </div>
-        ) : null}
-        {["text", "number", "date", "email"].includes(field.type) ? (
-          <Input type={field.type === "text" ? "text" : field.type} required={field.required} value={form[field.name] || ""} onChange={(event) => setForm({ ...form, [field.name]: event.target.value })} />
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function optionsFor(field: FieldConfig, lookups: Lookups) {
-  if (field.lookup === "vendors") return (lookups.vendors || []).map((item) => ({ value: item.id, label: item.legalName }))
-  if (field.lookup === "events") return (lookups.events || []).map((item) => ({ value: item.id, label: item.name }))
-  if (field.lookup === "categories") return (lookups.categories || []).map((item) => ({ value: item.id, label: item.name }))
-  if (field.lookup === "terms") return (lookups.terms || []).map((item) => ({ value: item.id, label: item.name }))
-  if (field.lookup === "emirates") return (lookups.emirates || []).map((item) => ({ value: item.name, label: item.name }))
-  if (field.lookup === "users") return (lookups.users || []).map((item) => ({ value: item.id, label: item.name }))
-  if (field.lookup === "documentTypes") return (lookups.documentTypes || []).map((item) => ({ value: item.id, label: item.name }))
-  if (field.lookup === "roles") return (lookups.roles || []).map((item) => ({ value: item.id, label: item.name }))
-  return []
 }
 
 function RowMenu({ portal, moduleKey, row, user, canEdit, onEdit, onRemove, onReview, onQr, onAssign }: {
