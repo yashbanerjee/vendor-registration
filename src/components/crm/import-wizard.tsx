@@ -17,7 +17,7 @@ export function ImportWizard() {
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
-  const [result, setResult] = useState<{ job: { successful: number; failed: number }; invitations?: { email: string; temporaryPassword?: string; emailed: boolean }[] } | null>(null)
+  const [result, setResult] = useState<{ job: { id?: string; status?: string; total?: number; processed?: number; successful: number; failed: number }; invitations?: { email: string; temporaryPassword?: string; emailed: boolean }[] } | null>(null)
   const [activate, setActivate] = useState(false)
 
   async function parse() {
@@ -77,18 +77,27 @@ export function ImportWizard() {
             </div>
             <Button onClick={async () => {
               setStep(6)
-              const response = await api<{ job: { successful: number; failed: number }; invitations?: { email: string; temporaryPassword?: string; emailed: boolean }[] }>("/api/vendors/import/commit", {
+              const started = await api<{ job: { id: string; status: string; total: number; successful: number; failed: number; processed?: number }; queued?: boolean }>("/api/vendors/import/commit", {
                 method: "POST",
                 body: JSON.stringify({ fileName: file?.name, activate, rows: preview.rows.filter((row) => row.status === "valid").map((row) => row.values) }),
               })
-              setResult(response)
+              let current = started.job
+              setResult({ job: current })
+              while (current.status === "queued" || current.status === "processing") {
+                await new Promise((resolve) => setTimeout(resolve, 1500))
+                current = await api(`/api/imports/${started.job.id}`)
+                setResult({ job: current, invitations: (current as { result?: { invitations?: { email: string; temporaryPassword?: string; emailed: boolean }[] } }).result?.invitations })
+              }
               toast.success("Import finished.")
             }}>Confirm import</Button>
           </>
         )}
         {result && (
           <div className="space-y-2 text-sm">
-            <p>Created {result.job.successful}. Failed {result.job.failed}. Vendors stay in draft until they submit their details.</p>
+            <p>Status {result.job.status || "completed"}. Created {result.job.successful}. Failed {result.job.failed}. Processed {result.job.processed || 0} / {result.job.total || 0}. Vendors stay in draft until they submit their details.</p>
+            {result.job.id && result.job.failed > 0 && (
+              <Button variant="outline" onClick={() => { window.location.href = `/api/imports/${result.job.id}/errors` }}>Download import-errors.xlsx</Button>
+            )}
             {(result.invitations || []).filter((item) => item.temporaryPassword).map((item) => (
               <p key={item.email}>Mail is not configured for {item.email}. Temporary password: {item.temporaryPassword}</p>
             ))}

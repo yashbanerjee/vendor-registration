@@ -68,6 +68,7 @@ export async function login(req: Request) {
   if (!user || !valid || user.deletedAt || user.status !== "ACTIVE") {
     throw new ApiError(401, "Email or password is incorrect.")
   }
+  await ensurePlatformDefaults()
   if (body.portal === "admin" && user.portal === "VENDOR") {
     throw new ApiError(403, "This account uses the vendor sign-in page.")
   }

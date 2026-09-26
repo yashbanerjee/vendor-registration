@@ -9,7 +9,11 @@ export function requestOrigin(req: Request) {
   return `${proto}://${host}`
 }
 
-export async function sendMail(input: { to: string; subject: string; text: string }) {
+export async function sendMail(input: { to: string; subject: string; text: string; html?: string; category?: "transactional" | "marketing"; vendorId?: string }) {
+  const { providerConfigured, queueEmail } = await import("@/server/email/queue-mail")
+  if (!(await providerConfigured())) return false
+  const queued = await queueEmail({ to: input.to, subject: input.subject, text: input.text, html: input.html, category: input.category || "transactional", vendorId: input.vendorId })
+  if (queued) return true
   const row = await prisma.integrationSetting.findUnique({ where: { provider: "smtp" } })
   if (!row?.enabled || !row.secretCipher) return false
   const config = (row.config || {}) as { host?: string; port?: number; user?: string; from?: string; secure?: boolean }
@@ -21,7 +25,7 @@ export async function sendMail(input: { to: string; subject: string; text: strin
       secure: Boolean(config.secure),
       auth: config.user ? { user: config.user, pass: await decryptSecret(row.secretCipher) } : undefined,
     })
-    await transporter.sendMail({ from: config.from, to: input.to, subject: input.subject, text: input.text })
+    await transporter.sendMail({ from: config.from, to: input.to, subject: input.subject, text: input.text, html: input.html })
     return true
   } catch {
     return false

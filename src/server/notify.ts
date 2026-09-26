@@ -18,6 +18,11 @@ export async function notifyUsers(
   if (template && !template.active) return
   const title = fill(template?.subject || vars.title || type, vars)
   const body = fill(template?.body || vars.body || "", vars)
+  if (await isFeatureEnabled("notificationQueue")) {
+    const { publishEvent } = await import("@/server/events/outbox")
+    await publishEvent({ eventType: "NotificationRequested", aggregateType: "Notification", aggregateId: type, payload: { userIds: unique, title, body, type, link } })
+    return
+  }
   await prisma.notification.createMany({
     data: unique.map((userId) => ({ userId, title, body, type, link })),
   })

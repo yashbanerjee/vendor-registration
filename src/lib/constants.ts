@@ -20,6 +20,18 @@ export const FEATURE_CATALOG = [
   { key: "support", name: "Support Tickets", description: "Vendor support desk", group: "Insights", sortOrder: 19 },
   { key: "notifications", name: "Notifications", description: "In-app notifications", group: "Platform", sortOrder: 20 },
   { key: "reports", name: "Reports", description: "Operational and finance reports", group: "Platform", sortOrder: 21 },
+  { key: "bulkEmail", name: "Bulk Email", description: "Campaigns and queued email", group: "Communication", sortOrder: 30 },
+  { key: "emailTracking", name: "Email Tracking", description: "Store provider and tracking events", group: "Communication", sortOrder: 31 },
+  { key: "openTracking", name: "Open Tracking", description: "Tracking pixel for detected opens", group: "Communication", sortOrder: 32 },
+  { key: "clickTracking", name: "Click Tracking", description: "Rewrite links for click events", group: "Communication", sortOrder: 33 },
+  { key: "deliveryTracking", name: "Delivery Tracking", description: "Provider delivery webhooks", group: "Communication", sortOrder: 34 },
+  { key: "bounceProcessing", name: "Bounce Processing", description: "Soft and hard bounce handling", group: "Communication", sortOrder: 35 },
+  { key: "complaintProcessing", name: "Complaint Processing", description: "Provider complaint events", group: "Communication", sortOrder: 36 },
+  { key: "unsubscribe", name: "Unsubscribe", description: "Marketing unsubscribe handling", group: "Communication", sortOrder: 37 },
+  { key: "emailQueue", name: "Email Queue", description: "Send email through background workers", group: "Communication", sortOrder: 38 },
+  { key: "importQueue", name: "Import Queue", description: "Process bulk imports in the background", group: "Communication", sortOrder: 39 },
+  { key: "notificationQueue", name: "Notification Queue", description: "Create in-app notifications asynchronously", group: "Communication", sortOrder: 40 },
+  { key: "realtimeEmail", name: "Real-time Email Dashboard", description: "Live campaign progress", group: "Communication", sortOrder: 41 },
 ] as const
 
 export type FeatureKey = (typeof FEATURE_CATALOG)[number]["key"]

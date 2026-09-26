@@ -8,6 +8,8 @@ import * as commercial from "@/server/handlers/commercial"
 import * as operations from "@/server/handlers/operations"
 import * as finance from "@/server/handlers/finance"
 import * as platform from "@/server/handlers/platform"
+import * as email from "@/server/handlers/email"
+import * as queues from "@/server/handlers/queues"
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response>
 
@@ -28,6 +30,27 @@ const routes: { method: string; pattern: string; handler: Handler }[] = [
   { method: "POST", pattern: "vendors/import/preview", handler: (req) => importer.importPreview(req) },
   { method: "POST", pattern: "vendors/import/commit", handler: (req) => importer.importCommit(req) },
   { method: "GET", pattern: "vendors/import/jobs", handler: () => importer.listImportJobs() },
+  { method: "GET", pattern: "imports/:id", handler: (req, params) => importer.importProgress(req, params) },
+  { method: "GET", pattern: "imports/:id/errors", handler: (req, params) => importer.importErrors(req, params) },
+
+  { method: "GET", pattern: "email/campaigns", handler: (req) => email.listCampaigns(req) },
+  { method: "POST", pattern: "email/campaigns", handler: (req) => email.createCampaign(req) },
+  { method: "GET", pattern: "email/campaigns/:id", handler: (req, params) => email.getCampaign(req, params) },
+  { method: "GET", pattern: "email/messages", handler: (req) => email.listMessages(req) },
+  { method: "GET", pattern: "email/messages/:id", handler: (req, params) => email.getMessage(req, params) },
+  { method: "GET", pattern: "email/templates", handler: () => email.listTemplates() },
+  { method: "POST", pattern: "email/templates", handler: (req) => email.saveTemplate(req, {}) },
+  { method: "PATCH", pattern: "email/templates/:id", handler: (req, params) => email.saveTemplate(req, params) },
+  { method: "POST", pattern: "email/templates/preview", handler: (req) => email.previewTemplate(req) },
+  { method: "GET", pattern: "email/suppressions", handler: () => email.listSuppressions() },
+  { method: "DELETE", pattern: "email/suppressions/:id", handler: (req, params) => email.deleteSuppression(req, params) },
+  { method: "GET", pattern: "email/settings", handler: () => email.getEmailSettings() },
+  { method: "PUT", pattern: "email/settings", handler: (req) => email.saveEmailSettings(req) },
+
+  { method: "GET", pattern: "queues", handler: () => queues.queueSummary() },
+  { method: "GET", pattern: "queues/:queueName/jobs", handler: (req, params) => queues.listJobs(req, params) },
+  { method: "POST", pattern: "queues/:queueName/retry", handler: (req, params) => queues.retryJob(req, params) },
+  { method: "POST", pattern: "queues/:queueName/cancel", handler: (req, params) => queues.cancelJob(req, params) },
   { method: "GET", pattern: "vendors", handler: (req) => vendors.listVendors(req) },
   { method: "POST", pattern: "vendors", handler: (req) => vendors.createVendor(req) },
   { method: "GET", pattern: "vendor-applications", handler: (req) => vendors.listApplications(req) },

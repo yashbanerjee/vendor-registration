@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
 import {
+  Activity,
   Bell,
   Building2,
   CalendarRange,
@@ -15,9 +16,12 @@ import {
   HardHat,
   KeyRound,
   LayoutDashboard,
+  Inbox,
   LifeBuoy,
   ListChecks,
   LogOut,
+  Mail,
+  Mails,
   Menu,
   Moon,
   PanelLeft,
@@ -51,7 +55,7 @@ import type { FeatureFlag, PublicUser } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const iconMap = {
-  LayoutDashboard, Building2, ClipboardCheck, Files, ShieldCheck, CalendarRange, Send, Scale, FileSpreadsheet, FileSignature, ListChecks, Truck, HardHat, QrCode, Receipt, Wallet, Star, LifeBuoy, ChartColumn, Bell, Users, KeyRound, ScrollText, ToggleRight, Settings,
+  LayoutDashboard, Building2, ClipboardCheck, Files, ShieldCheck, CalendarRange, Send, Scale, FileSpreadsheet, FileSignature, ListChecks, Truck, HardHat, QrCode, Receipt, Wallet, Star, LifeBuoy, ChartColumn, Bell, Mail, Mails, Inbox, Activity, Users, KeyRound, ScrollText, ToggleRight, Settings,
 }
 
 export function Shell({
@@ -87,6 +91,7 @@ export function Shell({
     if (item.feature && !enabled.has(item.feature)) return false
     if (item.superOnly && user.portal !== "SUPER_ADMIN") return false
     if (item.module && !can(user, item.module, "VIEW")) return false
+    if (user.role?.slug === "staff" && item.href.startsWith("/admin/email")) return false
     if (portal === "vendor" && !approved) {
       const allowed = new Set(["/vendor", "/vendor/notifications"])
       if (onboarding) {

@@ -48,7 +48,7 @@ export function SettingsPage({ initialTab = "general" }: { initialTab?: string }
       </div>
       <Tabs defaultValue={initialTab}>
         <TabsList className="flex h-auto flex-wrap">
-          {["general", "uae", "vendor", "workflow", "notifications", "finance", "features", "branding", "integrations"].map((tab) => <TabsTrigger key={tab} value={tab} className="capitalize">{tab}</TabsTrigger>)}
+          {["general", "uae", "vendor", "workflow", "notifications", "finance", "features", "branding", "integrations", "email"].map((tab) => <TabsTrigger key={tab} value={tab} className="capitalize">{tab}</TabsTrigger>)}
         </TabsList>
         <TabsContent value="general">
           <form className="grid gap-3 md:grid-cols-2" onSubmit={saveCompany}>
@@ -118,6 +118,9 @@ export function SettingsPage({ initialTab = "general" }: { initialTab?: string }
         </TabsContent>
         <TabsContent value="integrations">
           <IntegrationForm />
+        </TabsContent>
+        <TabsContent value="email">
+          <EmailDeliveryForm />
         </TabsContent>
       </Tabs>
     </div>
@@ -227,6 +230,95 @@ function TemplateEditor() {
         </Card>
       ))}
     </div>
+  )
+}
+
+function EmailDeliveryForm() {
+  const [form, setForm] = useState<Record<string, string | number | boolean>>({
+    provider: "smtp",
+    senderName: "",
+    senderEmail: "",
+    replyTo: "",
+    publicBaseUrl: "",
+    dailyLimit: 10000,
+    perSecond: 5,
+    perMinute: 120,
+    perHour: 2000,
+    batchSize: 25,
+    maxRetries: 3,
+    initialDelayMs: 30000,
+    maxDelayMs: 3600000,
+    trackingEnabled: true,
+    openTracking: true,
+    clickTracking: true,
+    bounceProcessing: true,
+    complaintProcessing: true,
+    unsubscribeEnabled: true,
+  })
+  const [apiKey, setApiKey] = useState("")
+  const [redisUrl, setRedisUrl] = useState("")
+  const [webhookSecret, setWebhookSecret] = useState("")
+  const [mailgunDomain, setMailgunDomain] = useState("")
+  const [flags, setFlags] = useState({ smtpConfigured: false, providerSecretSet: false, redisConfigured: false, webhookSecretSet: false })
+  useEffect(() => {
+    api<typeof form & typeof flags>("/api/email/settings").then((data) => {
+      setForm((current) => ({ ...current, ...data }))
+      setFlags({ smtpConfigured: Boolean(data.smtpConfigured), providerSecretSet: Boolean(data.providerSecretSet), redisConfigured: Boolean(data.redisConfigured), webhookSecretSet: Boolean(data.webhookSecretSet) })
+    }).catch((error) => toast.error(error.message))
+  }, [])
+  const toggle = (key: string) => (
+    <label className="flex items-center justify-between text-sm">
+      {key}
+      <Switch checked={Boolean(form[key])} onCheckedChange={(checked) => setForm({ ...form, [key]: checked })} />
+    </label>
+  )
+  return (
+    <form className="grid max-w-3xl gap-3 md:grid-cols-2" onSubmit={async (event) => {
+      event.preventDefault()
+      const numbers = ["dailyLimit", "perSecond", "perMinute", "perHour", "batchSize", "maxRetries", "initialDelayMs", "maxDelayMs"]
+      const body: Record<string, unknown> = { ...form }
+      delete body.smtpConfigured
+      delete body.providerSecretSet
+      delete body.redisConfigured
+      delete body.webhookSecretSet
+      for (const key of numbers) body[key] = Number(form[key])
+      if (apiKey) body.apiKey = apiKey
+      if (redisUrl) body.redisUrl = redisUrl
+      if (webhookSecret) body.webhookSecret = webhookSecret
+      if (mailgunDomain) body.mailgunDomain = mailgunDomain
+      try {
+        await api("/api/email/settings", { method: "PUT", body: JSON.stringify(body) })
+        toast.success("Email settings saved. Secrets stay encrypted and are not shown again.")
+        setApiKey("")
+        setRedisUrl("")
+        setWebhookSecret("")
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not save email settings.")
+      }
+    }}>
+      <p className="text-sm text-muted-foreground md:col-span-2">Provider credentials, Redis, and the webhook secret are encrypted in the database. Leave a secret blank to keep the saved value. SMTP host and password stay on the Integrations tab.</p>
+      <div><Label>Provider</Label>
+        <Select className="mt-1" value={String(form.provider)} onChange={(event) => setForm({ ...form, provider: event.target.value })}>
+          {["smtp", "ses", "sendgrid", "mailgun", "postmark", "resend"].map((item) => <option key={item} value={item}>{item}</option>)}
+        </Select>
+      </div>
+      <div><Label>Sender name</Label><Input className="mt-1" value={String(form.senderName || "")} onChange={(event) => setForm({ ...form, senderName: event.target.value })} /></div>
+      <div><Label>Sender email</Label><Input className="mt-1" value={String(form.senderEmail || "")} onChange={(event) => setForm({ ...form, senderEmail: event.target.value })} /></div>
+      <div><Label>Reply-to</Label><Input className="mt-1" value={String(form.replyTo || "")} onChange={(event) => setForm({ ...form, replyTo: event.target.value })} /></div>
+      <div className="md:col-span-2"><Label>Public base URL for tracking links</Label><Input className="mt-1" value={String(form.publicBaseUrl || "")} onChange={(event) => setForm({ ...form, publicBaseUrl: event.target.value })} placeholder="https://your-domain.com" /></div>
+      {["dailyLimit", "perSecond", "perMinute", "perHour", "batchSize", "maxRetries", "initialDelayMs", "maxDelayMs"].map((key) => (
+        <div key={key}><Label>{key}</Label><Input className="mt-1" type="number" value={String(form[key] ?? "")} onChange={(event) => setForm({ ...form, [key]: event.target.value })} /></div>
+      ))}
+      <div className="space-y-2 md:col-span-2">
+        {["trackingEnabled", "openTracking", "clickTracking", "bounceProcessing", "complaintProcessing", "unsubscribeEnabled"].map((key) => <div key={key}>{toggle(key)}</div>)}
+      </div>
+      <div><Label>API key {flags.providerSecretSet ? "(saved)" : ""}</Label><Input className="mt-1" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Leave blank to keep the saved key" /></div>
+      <div><Label>Mailgun domain</Label><Input className="mt-1" value={mailgunDomain} onChange={(event) => setMailgunDomain(event.target.value)} /></div>
+      <div><Label>Redis URL {flags.redisConfigured ? "(saved)" : ""}</Label><Input className="mt-1" type="password" value={redisUrl} onChange={(event) => setRedisUrl(event.target.value)} placeholder="redis://localhost:6379" /></div>
+      <div><Label>Webhook secret {flags.webhookSecretSet ? "(saved)" : ""}</Label><Input className="mt-1" type="password" value={webhookSecret} onChange={(event) => setWebhookSecret(event.target.value)} placeholder="At least 16 characters" /></div>
+      <p className="text-sm text-muted-foreground md:col-span-2">SMTP {flags.smtpConfigured ? "is configured" : "is not configured yet"}. Open tracking records a pixel request. It is not proof that someone read the message.</p>
+      <Button type="submit" className="w-fit">Save email settings</Button>
+    </form>
   )
 }
 

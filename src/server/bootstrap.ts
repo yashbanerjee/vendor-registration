@@ -328,6 +328,30 @@ export async function ensurePlatformDefaults() {
       })
     }
   }
+
+  const emailTemplates: [string, string, string, string, string][] = [
+    ["registration", "Registration invitation", "transactional", "Your vendor desk for {{companyName}}", "Hello {{vendorName}},\n\n{{companyName}} invited you to the vendor portal.\n\n{{portalUrl}}"],
+    ["approval", "Vendor approval", "transactional", "{{vendorName}} is approved", "Hello {{vendorName}},\n\n{{companyName}} approved your vendor profile.\n\n{{portalUrl}}"],
+    ["rejection", "Vendor rejection", "transactional", "Update on {{vendorName}}", "Hello {{vendorName}},\n\n{{companyName}} could not approve the profile at this time.\n\n{{portalUrl}}"],
+    ["document_reminder", "Document reminder", "transactional", "Document reminder for {{vendorName}}", "Hello {{vendorName}},\n\nA document needs attention before {{dueDate}}.\n\n{{portalUrl}}"],
+    ["document_expiry", "Document expiry", "transactional", "Document expiring for {{vendorName}}", "Hello {{vendorName}},\n\nA document is due on {{dueDate}}.\n\n{{portalUrl}}"],
+    ["rfq_invitation", "RFQ invitation", "transactional", "RFQ {{rfqNumber}}", "Hello {{vendorName}},\n\n{{companyName}} invited you to quote on {{rfqNumber}}.\n\n{{portalUrl}}"],
+    ["quotation_received", "Quotation received", "transactional", "Quotation received", "A quotation was received for {{rfqNumber}}."],
+    ["po_notification", "Purchase order", "transactional", "Purchase order {{poNumber}}", "Hello {{vendorName}},\n\nPurchase order {{poNumber}} is ready.\n\n{{portalUrl}}"],
+    ["contract_notification", "Contract notice", "transactional", "Contract update for {{vendorName}}", "Hello {{vendorName}},\n\nThere is a contract update from {{companyName}}.\n\n{{portalUrl}}"],
+    ["invoice_notification", "Invoice notice", "transactional", "Invoice {{invoiceNumber}}", "Hello {{vendorName}},\n\nInvoice {{invoiceNumber}} for {{amount}} is on the portal.\n\n{{portalUrl}}"],
+    ["payment_notification", "Payment notice", "transactional", "Payment update", "Hello {{vendorName}},\n\nA payment of {{amount}} was recorded.\n\n{{portalUrl}}"],
+    ["event_notification", "Event notice", "transactional", "{{eventName}}", "Hello {{vendorName}},\n\n{{eventName}} has an update.\n\n{{portalUrl}}"],
+    ["announcement", "General announcement", "marketing", "Update from {{companyName}}", "Hello {{vendorName}},\n\n{{companyName}} has an announcement for you.\n\n{{portalUrl}}"],
+  ]
+  for (const [key, name, category, subject, text] of emailTemplates) {
+    const html = `<p>${text.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br/>")}</p>`
+    await prisma.emailTemplate.upsert({
+      where: { key },
+      update: {},
+      create: { key, name, category, subject, text, html },
+    })
+  }
 }
 
 export async function createSuperAdmin(input: { name: string; email: string; password: string }) {

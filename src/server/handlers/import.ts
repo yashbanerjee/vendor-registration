@@ -7,6 +7,7 @@ import { ApiError } from "@/server/errors"
 import { authorize } from "@/server/guard"
 import { clientMeta, fileResponse, ok, readJson } from "@/server/http"
 import { nextCode } from "@/server/numbers"
+import { publishEvent } from "@/server/events/outbox"
 import { openVendorAccess, saveVendorDetails } from "@/server/handlers/vendors"
 import { requestOrigin } from "@/server/mail"
 
@@ -166,10 +167,47 @@ export async function importPreview(req: Request) {
   const form = await req.formData()
   const file = form.get("file")
   if (!(file instanceof File)) throw new ApiError(400, "Choose a CSV or Excel file.")
-  if (file.size > 5 * 1024 * 1024) throw new ApiError(413, "Import files must be 5 MB or smaller.")
+  if (file.size > 20 * 1024 * 1024) throw new ApiError(413, "Import files must be 20 MB or smaller.")
   const rows = await rowsFromFile(file)
-  if (rows.length > 1000) throw new ApiError(422, "Import up to 1,000 rows at a time.")
+  if (rows.length > 50000) throw new ApiError(422, "Import up to 50,000 rows at a time.")
   return ok(await classify(rows), "Import preview is ready.")
+}
+
+export async function importOneRow(values: Record<string, string>, userId: string, origin: string, activate: boolean) {
+  const category = values.vendorCategory
+    ? await prisma.vendorCategory.findFirst({ where: { name: { equals: values.vendorCategory, mode: "insensitive" } } })
+    : null
+  const serviceNames = values.services ? values.services.split("|").map((item) => item.trim()).filter(Boolean) : []
+  const services = serviceNames.length ? await prisma.vendorService.findMany({ where: { name: { in: serviceNames, mode: "insensitive" } } }) : []
+  const term = values.paymentTerms ? await prisma.paymentTerm.findFirst({ where: { name: { equals: values.paymentTerms, mode: "insensitive" } } }) : null
+  const vendor = await prisma.vendor.create({
+    data: { vendorCode: await nextCode("vendor", "V"), legalName: values.companyName, status: "DRAFT" },
+  })
+  await saveVendorDetails(
+    vendor.id,
+    {
+      legalName: values.companyName,
+      tradeName: values.tradeName || null,
+      tradeLicenseNumber: values.tradeLicenseNumber || null,
+      licenseAuthority: values.issuingAuthority || null,
+      businessActivity: values.businessActivity || null,
+      emirate: values.emirate || null,
+      address: values.address || null,
+      trn: values.trn || null,
+      vatStatus: values.vatStatus ? values.vatStatus.toUpperCase().replace(/\s+/g, "_") : null,
+      bankName: values.bankName || null,
+      iban: values.iban || null,
+      accountName: values.accountName || null,
+      paymentTermId: term?.id || null,
+      categoryIds: category ? [category.id] : [],
+      serviceIds: services.map((service) => service.id),
+      contact: values.contactPerson ? { name: values.contactPerson, email: values.email || "", phone: values.phone || "" } : undefined,
+    },
+    userId,
+  )
+  const access = await openVendorAccess(vendor.id, { email: values.email, name: values.contactPerson || values.companyName, phone: values.phone }, origin)
+  if (activate) await prisma.vendor.update({ where: { id: vendor.id }, data: { status: "ACTIVE", approvedAt: new Date() } })
+  return { email: access.email, temporaryPassword: access.temporaryPassword, emailed: access.emailed }
 }
 
 export async function importCommit(req: Request) {
@@ -178,89 +216,53 @@ export async function importCommit(req: Request) {
     .object({
       fileName: z.string().default("import"),
       activate: z.boolean().optional(),
-      rows: z.array(z.record(z.string(), z.string())).max(1000),
+      rows: z.array(z.record(z.string(), z.string())).max(50000),
     })
     .parse(await readJson(req))
   const preview = await classify(body.rows)
-  let successful = 0
-  const errors: { line: number; errors: string[] }[] = []
-  const invitations: { email: string; temporaryPassword?: string; emailed: boolean }[] = []
-  for (const row of preview.rows) {
-    if (row.status !== "valid") {
-      errors.push({ line: row.line, errors: row.errors })
-      continue
-    }
-    try {
-      const category = row.values.vendorCategory
-        ? await prisma.vendorCategory.findFirst({ where: { name: { equals: row.values.vendorCategory, mode: "insensitive" } } })
-        : null
-      const serviceNames = row.values.services ? row.values.services.split("|").map((item) => item.trim()).filter(Boolean) : []
-      const services = serviceNames.length
-        ? await prisma.vendorService.findMany({ where: { name: { in: serviceNames, mode: "insensitive" } } })
-        : []
-      const term = row.values.paymentTerms
-        ? await prisma.paymentTerm.findFirst({ where: { name: { equals: row.values.paymentTerms, mode: "insensitive" } } })
-        : null
-      const vendor = await prisma.vendor.create({
-        data: { vendorCode: await nextCode("vendor", "V"), legalName: row.values.companyName, status: "DRAFT" },
-      })
-      await saveVendorDetails(
-        vendor.id,
-        {
-          legalName: row.values.companyName,
-          tradeName: row.values.tradeName || null,
-          tradeLicenseNumber: row.values.tradeLicenseNumber || null,
-          licenseAuthority: row.values.issuingAuthority || null,
-          businessActivity: row.values.businessActivity || null,
-          emirate: row.values.emirate || null,
-          address: row.values.address || null,
-          trn: row.values.trn || null,
-          vatStatus: row.values.vatStatus ? row.values.vatStatus.toUpperCase().replace(/\s+/g, "_") : null,
-          bankName: row.values.bankName || null,
-          iban: row.values.iban || null,
-          accountName: row.values.accountName || null,
-          paymentTermId: term?.id || null,
-          categoryIds: category ? [category.id] : [],
-          serviceIds: services.map((service) => service.id),
-          contact: row.values.contactPerson
-            ? { name: row.values.contactPerson, email: row.values.email || "", phone: row.values.phone || "" }
-            : undefined,
-        },
-        user.id,
-      )
-      const access = await openVendorAccess(vendor.id, { email: row.values.email, name: row.values.contactPerson || row.values.companyName, phone: row.values.phone }, requestOrigin(req))
-      if (body.activate) {
-        await prisma.vendor.update({ where: { id: vendor.id }, data: { status: "ACTIVE", approvedAt: new Date() } })
-      }
-      invitations.push({ email: access.email, temporaryPassword: access.temporaryPassword, emailed: access.emailed })
-      successful += 1
-    } catch (error) {
-      errors.push({ line: row.line, errors: [error instanceof Error ? error.message : "Could not import this row."] })
-    }
-  }
+  const invalid = preview.rows
+    .filter((row) => row.status !== "valid")
+    .map((row) => ({ line: row.line, field: "row", error: row.errors.join(" "), value: row.values.email || "" }))
   const job = await prisma.importJob.create({
     data: {
       fileName: body.fileName,
-      status: "completed",
+      status: "queued",
       total: preview.summary.total,
-      successful,
-      failed: preview.summary.total - successful,
+      processed: 0,
+      successful: 0,
+      failed: invalid.length,
       duplicates: preview.summary.duplicate,
       invalid: preview.summary.invalid,
-      errors,
+      errors: invalid,
+      payload: { rows: preview.rows, activate: Boolean(body.activate), origin: requestOrigin(req) },
       createdById: user.id,
     },
   })
-  await audit({
-    userId: user.id,
-    action: "Imported vendors",
-    module: "vendors",
-    recordId: job.id,
-    recordLabel: body.fileName,
-    newValue: { successful, failed: job.failed },
-    ...clientMeta(req),
-  })
-  return ok({ job, errors, invitations }, "Import finished.")
+  await publishEvent({ eventType: "ImportRequested", aggregateType: "ImportJob", aggregateId: job.id, payload: { jobId: job.id, userId: user.id } })
+  await audit({ userId: user.id, action: "Queued vendor import", module: "vendors", recordId: job.id, recordLabel: body.fileName, newValue: { total: job.total }, ...clientMeta(req) })
+  return ok({ job: { id: job.id, status: job.status, total: job.total, successful: 0, failed: invalid.length }, queued: true }, "Import queued. Progress updates as the worker processes rows.", undefined, 202)
+}
+
+export async function importProgress(_req: Request, params: Record<string, string>) {
+  await authorize({ module: "vendors", action: "VIEW", feature: "bulkImport", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const job = await prisma.importJob.findUnique({ where: { id: params.id } })
+  if (!job) throw new ApiError(404, "Import job not found.")
+  const { payload: _payload, ...safe } = job
+  return ok(safe, "Import progress loaded.")
+}
+
+export async function importErrors(req: Request, params: Record<string, string>) {
+  await authorize({ module: "vendors", action: "EXPORT", feature: "bulkImport", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const job = await prisma.importJob.findUnique({ where: { id: params.id } })
+  if (!job) throw new ApiError(404, "Import job not found.")
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet("Errors")
+  sheet.addRow(["Row", "Field", "Error", "Original value"])
+  for (const error of (job.errors as { line?: number; field?: string; error?: string; errors?: string[]; value?: string }[]) || []) {
+    sheet.addRow([error.line, error.field || "", error.error || (error.errors || []).join("; "), error.value || ""])
+  }
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer())
+  return fileResponse(buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "import-errors.xlsx")
 }
 
 export async function listImportJobs() {

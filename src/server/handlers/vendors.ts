@@ -11,6 +11,7 @@ import { allowedSort, clientMeta, listQuery, metaOf, ok, parseDate, readJson, to
 import { nextCode } from "@/server/numbers"
 import { notifyStaff, notifyVendorUsers } from "@/server/notify"
 import { hashPassword } from "@/server/password"
+import { publishEvent } from "@/server/events/outbox"
 import { requestOrigin, sendMail } from "@/server/mail"
 import { can } from "@/lib/permissions"
 
@@ -529,18 +530,37 @@ export async function reviewVendor(req: Request, params: Record<string, string>)
     }
   }
 
-  const updated = await prisma.vendor.update({
-    where: { id: vendor.id },
-    data: {
-      status,
-      approvedAt: status === "APPROVED" || status === "ACTIVE" ? vendor.approvedAt || new Date() : vendor.approvedAt,
-    },
-  })
-  if (body.note) {
-    await prisma.note.create({
-      data: { vendorId: vendor.id, authorId: user.id, body: body.note, internal: true },
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.vendor.update({
+      where: { id: vendor.id },
+      data: {
+        status,
+        approvedAt: status === "APPROVED" || status === "ACTIVE" ? vendor.approvedAt || new Date() : vendor.approvedAt,
+      },
     })
-  }
+    if (body.note) {
+      await tx.note.create({
+        data: { vendorId: vendor.id, authorId: user.id, body: body.note, internal: true },
+      })
+    }
+    if (body.action === "APPROVE" && status === "APPROVED") {
+      await publishEvent({
+        eventType: "VendorApproved",
+        aggregateType: "Vendor",
+        aggregateId: vendor.id,
+        payload: { vendorId: vendor.id, approvedBy: user.id, note: body.note || "" },
+      }, tx)
+    }
+    if (body.action === "REJECT") {
+      await publishEvent({
+        eventType: "VendorRejected",
+        aggregateType: "Vendor",
+        aggregateId: vendor.id,
+        payload: { vendorId: vendor.id, rejectedBy: user.id, note: body.note || "" },
+      }, tx)
+    }
+    return row
+  })
   const template =
     body.action === "REJECT" ? "rejection" : body.action === "CHANGES" ? "changes_requested" : body.action === "APPROVE" && status === "APPROVED" ? "approval" : null
   if (template) {
