@@ -53,8 +53,8 @@ export function ImportWizard() {
       </div>
       <Card className="space-y-4 p-5">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild><a href="/api/vendors/import/template">Download Excel template</a></Button>
-          <Button variant="outline" asChild><a href="/api/vendors/import/template?format=csv">Download CSV template</a></Button>
+          <Button variant="outline" type="button" onClick={() => { window.location.href = "/api/vendors/import/template" }}>Download Excel template</Button>
+          <Button variant="outline" type="button" onClick={() => { window.location.href = "/api/vendors/import/template?format=csv" }}>Download CSV template</Button>
         </div>
         <input type="file" accept=".csv,.xlsx,.xls" onChange={(event) => { setFile(event.target.files?.[0] || null); setStep(1) }} />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={activate} onChange={(event) => setActivate(event.target.checked)} /> Import as active vendors</label>
