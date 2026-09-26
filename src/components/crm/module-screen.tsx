@@ -240,7 +240,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
         </Card>
       ) : (
         <>
-          <Card className="hidden overflow-hidden md:block">
+          <Card className="overflow-hidden">
             <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -270,19 +270,6 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
             </Table>
             </div>
           </Card>
-          <div className="space-y-3 md:hidden">
-            {rows.map((row) => (
-              <Card key={String(row.id)} className="space-y-2 p-4">
-                {visibleColumns.slice(0, 4).map((column) => (
-                  <div key={column.key} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">{column.label}</span>
-                    <span className="text-right">{renderValue(row, column.key, column.kind)}</span>
-                  </div>
-                ))}
-                <RowMenu portal={portal} moduleKey={moduleKey} row={row} user={user} canEdit={canEdit} onEdit={() => openEdit(row)} onRemove={() => row.id && remove(String(row.id))} onReview={review} onQr={async () => setQr(await api(`/api/gate-passes/${row.id}/qr`))} onAssign={() => { setAssignment({ vendorId: "", category: "", service: "", scope: "" }); setAssignEvent(row) }} />
-              </Card>
-            ))}
-          </div>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>{total} records</span>
             <div className="flex gap-2">

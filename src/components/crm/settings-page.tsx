@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { RecordTable } from "@/components/crm/data-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
@@ -83,23 +85,30 @@ export function SettingsPage({ initialTab = "general" }: { initialTab?: string }
         <TabsContent value="notifications"><TemplateEditor /></TabsContent>
         <TabsContent value="finance"><p className="text-sm text-muted-foreground">Payment terms are managed with vendor categories. Currency follows the UAE tax setting.</p><CatalogEditor termsOnly /></TabsContent>
         <TabsContent value="features">
-          <div className="space-y-2">
-            {features.map((feature) => (
-              <Card key={feature.key} className="flex items-center justify-between p-4">
-                <div><div className="font-medium">{feature.name}</div><div className="text-sm text-muted-foreground">{feature.description}</div></div>
-                <Switch checked={feature.enabled} onCheckedChange={async (enabled) => {
+          <RecordTable
+            rows={features}
+            empty="No features are configured."
+            rowKey={(row) => row.key}
+            columns={[
+              { header: "Feature", className: "font-medium", cell: (row) => row.name },
+              { header: "Key", cell: (row) => row.key },
+              { header: "Group", cell: (row) => row.group },
+              { header: "Description", cell: (row) => row.description || "—" },
+              { header: "Status", cell: (row) => <Badge value={row.enabled ? "ACTIVE" : "SUSPENDED"} /> },
+              { header: "", cell: (row) => (
+                <Switch checked={row.enabled} onCheckedChange={async (enabled) => {
                   const previous = features
-                  setFeatures(features.map((item) => item.key === feature.key ? { ...item, enabled } : item))
+                  setFeatures(features.map((item) => item.key === row.key ? { ...item, enabled } : item))
                   try {
-                    await api(`/api/features/${feature.key}`, { method: "PATCH", body: JSON.stringify({ enabled }) })
+                    await api(`/api/features/${row.key}`, { method: "PATCH", body: JSON.stringify({ enabled }) })
                   } catch (error) {
                     setFeatures(previous)
                     toast.error(error instanceof Error ? error.message : "Could not update the feature.")
                   }
                 }} />
-              </Card>
-            ))}
-          </div>
+              ) },
+            ]}
+          />
         </TabsContent>
         <TabsContent value="branding">
           <form className="grid max-w-xl gap-3" onSubmit={saveCompany}>
@@ -160,7 +169,7 @@ function CatalogEditor({ termsOnly = false }: { termsOnly?: boolean }) {
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={termsOnly ? "New payment term" : "New category"} />
         <Button type="submit">Add</Button>
       </form>
-      {rows.map((row) => <Card key={row.id} className="p-3 text-sm">{row.name}</Card>)}
+      <RecordTable rows={rows} empty="Nothing in this list yet." rowKey={(row) => row.id} columns={[{ header: "Name", className: "font-medium", cell: (row) => row.name }]} />
       {!termsOnly && <FieldBuilder />}
     </div>
   )
@@ -184,7 +193,16 @@ function FieldBuilder() {
         <Select value={fieldType} onChange={(event) => setFieldType(event.target.value)}>{FIELD_TYPES.map((type) => <option key={type}>{type}</option>)}</Select>
         <Button type="submit">Add field</Button>
       </form>
-      {fields.map((field) => <div key={field.id} className="text-sm">{field.label} · {field.fieldType}{field.required ? " · required" : ""}</div>)}
+      <RecordTable
+        rows={fields}
+        empty="No custom fields yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Label", className: "font-medium", cell: (row) => row.label },
+          { header: "Type", cell: (row) => row.fieldType },
+          { header: "Required", cell: (row) => row.required ? "Yes" : "No" },
+        ]}
+      />
     </Card>
   )
 }
@@ -196,7 +214,16 @@ function WorkflowEditor() {
   useEffect(() => { api<typeof rows>("/api/workflows").then(setRows).catch(() => undefined) }, [])
   return (
     <div className="space-y-3">
-      {rows.map((row) => <Card key={row.id} className="p-4 text-sm"><div className="font-medium">{row.name}</div><div className="text-muted-foreground">{row.steps.map((step) => step.name).join(" → ")}</div></Card>)}
+      <RecordTable
+        rows={rows}
+        empty="No workflows yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Workflow", className: "font-medium", cell: (row) => row.name },
+          { header: "Steps", cell: (row) => row.steps.map((step) => step.name).join(" → ") || "—" },
+          { header: "Levels", cell: (row) => row.steps.length },
+        ]}
+      />
       <form className="grid gap-2" onSubmit={async (event) => {
         event.preventDefault()
         await api("/api/workflows", { method: "POST", body: JSON.stringify({ name, module: "vendor_registration", steps: steps.split(",").map((step) => ({ name: step.trim() })).filter((step) => step.name) }) })

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { RecordTable } from "@/components/crm/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -58,7 +59,7 @@ const fieldOptions = [
 
 export function VendorProfile({ id, currency, portal = "admin" }: { id: string; currency: string; portal?: "admin" | "vendor" }) {
   const [vendor, setVendor] = useState<Vendor | null>(null)
-  const [related, setRelated] = useState<Record<string, { label: string }[]>>({})
+  const [related, setRelated] = useState<Record<string, Record<string, unknown>[]>>({})
   const [activity, setActivity] = useState<{ id: string; action: string; createdAt: string; user?: { name: string } | null }[]>([])
   const [error, setError] = useState("")
   const [note, setNote] = useState("")
@@ -82,11 +83,10 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
           ["invoices", `/api/invoices?vendorId=${data.id}&pageSize=10`],
           ["payments", `/api/payments?vendorId=${data.id}&pageSize=10`],
         ] as const
-        const next: Record<string, { label: string }[]> = {}
+        const next: Record<string, Record<string, unknown>[]> = {}
         await Promise.all(pairs.map(async ([key, url]) => {
           try {
-            const rows = await api<{ number?: string; name?: string; title?: string; reference?: string; subject?: string }[]>(url)
-            next[key] = rows.map((row) => ({ label: row.name || row.title || row.number || row.reference || row.subject || "Record" }))
+            next[key] = await api<Record<string, unknown>[]>(url)
           } catch {
             next[key] = []
           }
@@ -122,15 +122,10 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
         <p className="mt-3 text-sm text-muted-foreground">{vendor.categories?.map((item) => item.category.name).join(", ") || "No category yet"}</p>
       </Card>
       {portal === "vendor" && (vendor.fieldReviews || []).length > 0 && (
-        <Card className="space-y-3 p-5">
-          <h2 className="font-medium">The team asked you to update these fields</h2>
-          {(vendor.fieldReviews || []).map((review) => (
-            <div key={review.id} className="rounded-lg border border-border p-3 text-sm">
-              <div className="font-medium">{review.label}</div>
-              <p className="mt-1 text-muted-foreground">{review.note}</p>
-            </div>
-          ))}
-        </Card>
+        <div>
+          <h2 className="mb-2 font-medium">The team asked you to update these fields</h2>
+          <RecordTable rows={vendor.fieldReviews || []} empty="No field notes." rowKey={(row) => row.id} columns={[{ header: "Field", className: "font-medium", cell: (row) => row.label }, { header: "Note", cell: (row) => row.note }]} />
+        </div>
       )}
       {portal === "vendor" && (vendor.status === "DRAFT" || vendor.status === "CHANGES_REQUESTED") && <RegisterWizard mode="continue" />}
       {portal === "vendor" && vendor.status !== "DRAFT" && vendor.status !== "CHANGES_REQUESTED" && vendor.status !== "APPROVED" && vendor.status !== "ACTIVE" && (
@@ -146,7 +141,26 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
           </div>
         </TabsContent>
         <TabsContent value="Company">
-          <Info rows={[["Licence", vendor.tradeLicenseNumber], ["Authority", vendor.licenseAuthority], ["Zone", vendor.zoneType], ["Activity", vendor.businessActivity], ["Address", vendor.address], ["Website", vendor.website], ["TRN", vendor.trn], ["VAT", vendor.vatStatus], ["Bank", vendor.bankName], ["IBAN", vendor.iban]]} />
+          <RecordTable
+            rows={[
+              ["Licence", vendor.tradeLicenseNumber],
+              ["Authority", vendor.licenseAuthority],
+              ["Zone", vendor.zoneType],
+              ["Activity", vendor.businessActivity],
+              ["Address", vendor.address],
+              ["Website", vendor.website],
+              ["TRN", vendor.trn],
+              ["VAT", vendor.vatStatus],
+              ["Bank", vendor.bankName],
+              ["IBAN", vendor.iban],
+            ]}
+            empty="No company details yet."
+            rowKey={(row) => String(row[0])}
+            columns={[
+              { header: "Field", cell: (row) => row[0] },
+              { header: "Value", cell: (row) => row[1] || "—" },
+            ]}
+          />
           {portal === "admin" && (
             <form className="mt-4 grid gap-3 md:grid-cols-[1fr_2fr_auto]" onSubmit={async (event) => {
               event.preventDefault()
@@ -163,22 +177,40 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
             </form>
           )}
         </TabsContent>
-        <TabsContent value="Contacts"><List items={(vendor.contacts || []).map((contact) => `${contact.name} · ${contact.title || "Contact"} · ${contact.email || ""} ${contact.phone || ""}`)} /></TabsContent>
-        <TabsContent value="Services"><List items={(vendor.services || []).map((item) => item.service.name)} /></TabsContent>
-        <TabsContent value="Documents"><List items={(vendor.documents || []).map((doc) => `${doc.title} · ${labelize(doc.status)} · ${formatDate(doc.expiryDate)}`)} /></TabsContent>
+        <TabsContent value="Contacts">
+          <RecordTable rows={vendor.contacts || []} empty="No contacts yet." rowKey={(row, index) => `${row.email || row.name}-${index}`} columns={[{ header: "Name", className: "font-medium", cell: (row) => row.name }, { header: "Title", cell: (row) => row.title || "—" }, { header: "Email", cell: (row) => row.email || "—" }, { header: "Mobile", cell: (row) => row.phone || "—" }]} />
+        </TabsContent>
+        <TabsContent value="Services">
+          <RecordTable rows={vendor.services || []} empty="No services yet." rowKey={(row, index) => `${row.service.name}-${index}`} columns={[{ header: "Service", cell: (row) => row.service.name }]} />
+        </TabsContent>
+        <TabsContent value="Documents">
+          <RecordTable rows={vendor.documents || []} empty="No documents yet." rowKey={(row) => row.id} columns={[{ header: "Document", className: "font-medium", cell: (row) => row.title }, { header: "Status", cell: (row) => <Badge value={row.status} /> }, { header: "Expiry", cell: (row) => formatDate(row.expiryDate) }]} />
+        </TabsContent>
         <TabsContent value="Compliance"><Card className="p-5 text-sm">Score {vendor.complianceScore}%. Required documents are approved only while they are inside their expiry date.</Card></TabsContent>
-        <TabsContent value="Events"><List items={(related.events || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="RFQs"><List items={(related.rfqs || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Quotations"><List items={(related.quotations || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="POs"><List items={(related.pos || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Contracts"><List items={(related.contracts || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Tasks"><List items={(related.tasks || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Deliveries"><List items={(related.deliveries || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Workforce"><List items={(related.workforce || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Invoices"><List items={(related.invoices || []).map((item) => item.label)} /></TabsContent>
-        <TabsContent value="Payments"><List items={(related.payments || []).map((item) => item.label)} /></TabsContent>
+        <TabsContent value="Events"><RelatedTable rows={related.events} columns={[["code", "Code"], ["name", "Event"], ["client", "Client"], ["status", "Status"], ["startDate", "Starts"]]} /></TabsContent>
+        <TabsContent value="RFQs"><RelatedTable rows={related.rfqs} columns={[["number", "RFQ"], ["title", "Requirement"], ["status", "Status"], ["deadline", "Deadline"]]} /></TabsContent>
+        <TabsContent value="Quotations"><RelatedTable rows={related.quotations} money={currency} columns={[["number", "Quote"], ["total", "Total"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="POs"><RelatedTable rows={related.pos} money={currency} columns={[["number", "PO"], ["total", "Total"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Contracts"><RelatedTable rows={related.contracts} columns={[["number", "Contract"], ["title", "Title"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Tasks"><RelatedTable rows={related.tasks} columns={[["title", "Task"], ["priority", "Priority"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Deliveries"><RelatedTable rows={related.deliveries} columns={[["number", "Delivery"], ["material", "Material"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Workforce"><RelatedTable rows={related.workforce} columns={[["name", "Name"], ["role", "Role"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Invoices"><RelatedTable rows={related.invoices} money={currency} columns={[["number", "Invoice"], ["total", "Total"], ["status", "Status"]]} /></TabsContent>
+        <TabsContent value="Payments"><RelatedTable rows={related.payments} money={currency} columns={[["reference", "Payment"], ["amount", "Amount"], ["status", "Status"]]} /></TabsContent>
         <TabsContent value="Performance">
-          <div className="space-y-3">{(vendor.performances || []).map((item, index) => <Card key={index} className="p-4 text-sm">Quality {item.quality} · Delivery {item.delivery} · Communication {item.communication} · Compliance {item.compliance}<p className="mt-2 text-muted-foreground">{item.comments}</p></Card>)}{(vendor.performances || []).length === 0 && <Empty />}</div>
+          <RecordTable
+            rows={vendor.performances || []}
+            empty="Nothing recorded in this section yet."
+            rowKey={(row, index) => `${row.createdAt}-${index}`}
+            columns={[
+              { header: "Quality", cell: (row) => row.quality },
+              { header: "Delivery", cell: (row) => row.delivery },
+              { header: "Communication", cell: (row) => row.communication },
+              { header: "Compliance", cell: (row) => row.compliance },
+              { header: "Comments", cell: (row) => row.comments || "—" },
+              { header: "Date", cell: (row) => formatDate(row.createdAt, true) },
+            ]}
+          />
         </TabsContent>
         <TabsContent value="Notes">
           {portal === "admin" && (
@@ -192,19 +224,25 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
               <Button type="submit">Add</Button>
             </form>
           )}
-          <List items={(vendor.notes || []).map((item) => `${item.author?.name || "Team"} · ${formatDate(item.createdAt, true)} · ${item.body}`)} />
+          <RecordTable rows={vendor.notes || []} empty="Nothing recorded in this section yet." rowKey={(row) => row.id} columns={[{ header: "Author", cell: (row) => row.author?.name || "Team" }, { header: "Note", cell: (row) => row.body }, { header: "Date", cell: (row) => formatDate(row.createdAt, true) }]} />
         </TabsContent>
         <TabsContent value="Activity">
-          <div className="space-y-3 border-l border-border pl-4">
-            {activity.map((item) => <div key={item.id}><div className="text-sm font-medium">{item.user?.name || "System"} {item.action}</div><div className="text-xs text-muted-foreground">{formatDate(item.createdAt, true)}</div></div>)}
-            {activity.length === 0 && <Empty />}
-          </div>
-          {(vendor.approvalRequests || []).map((request) => (
-            <Card key={request.workflow.name} className="mt-4 p-4 text-sm">
-              <div className="font-medium">{request.workflow.name} · step {request.currentStep + 1}</div>
-              <p className="text-muted-foreground">{request.workflow.steps.map((step) => step.name).join(" → ")}</p>
-            </Card>
-          ))}
+          <RecordTable rows={activity} empty="Nothing recorded in this section yet." rowKey={(row) => row.id} columns={[{ header: "User", cell: (row) => row.user?.name || "System" }, { header: "Action", cell: (row) => row.action }, { header: "Date", cell: (row) => formatDate(row.createdAt, true) }]} />
+          {(vendor.approvalRequests || []).length > 0 && (
+            <div className="mt-4">
+              <RecordTable
+                rows={vendor.approvalRequests || []}
+                empty="No approval requests."
+                rowKey={(row) => row.workflow.name}
+                columns={[
+                  { header: "Workflow", className: "font-medium", cell: (row) => row.workflow.name },
+                  { header: "Status", cell: (row) => <Badge value={row.status} /> },
+                  { header: "Current level", cell: (row) => `${row.currentStep + 1} / ${row.workflow.steps.length || 1}` },
+                  { header: "Steps", cell: (row) => row.workflow.steps.map((step) => step.name).join(" → ") },
+                ]}
+              />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
       <p className="text-xs text-muted-foreground">Amounts on related commercial records use {currency}.</p>
@@ -220,15 +258,25 @@ function SelectField({ value, onChange }: { value: string; onChange: (value: str
   )
 }
 
-function Info({ rows }: { rows: (string | null | undefined)[][] }) {
-  return <Card className="divide-y divide-border">{rows.map(([label, value]) => <div key={label} className="flex justify-between gap-4 p-3 text-sm"><span className="text-muted-foreground">{label}</span><span className="text-right">{value || "—"}</span></div>)}</Card>
-}
-function List({ items }: { items: string[] }) {
-  if (!items.length) return <Empty />
-  return <Card className="divide-y divide-border">{items.map((item) => <div key={item} className="p-3 text-sm">{item}</div>)}</Card>
-}
-function Empty() {
-  return <Card className="p-8 text-sm text-muted-foreground">Nothing recorded in this section yet.</Card>
+function RelatedTable({ rows, columns, money }: { rows?: Record<string, unknown>[]; columns: [string, string][]; money?: string }) {
+  return (
+    <RecordTable
+      rows={rows || []}
+      empty="Nothing recorded in this section yet."
+      rowKey={(row, index) => String(row.id || index)}
+      columns={columns.map(([key, header]) => ({
+        header,
+        cell: (row: Record<string, unknown>) => {
+          const value = row[key]
+          if (value == null || value === "") return "—"
+          if (key === "status") return <Badge value={String(value)} />
+          if (money && (key === "total" || key === "amount")) return formatMoney(value, money)
+          if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) return formatDate(value)
+          return String(value)
+        },
+      }))}
+    />
+  )
 }
 
 export function moneyHint(value: unknown, currency: string) {

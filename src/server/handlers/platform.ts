@@ -9,6 +9,7 @@ import { prisma } from "@/server/db"
 import { ApiError } from "@/server/errors"
 import { readAsset, saveUpload } from "@/server/files"
 import { authorize, isFeatureEnabled, requireUser } from "@/server/guard"
+import { businessScope } from "@/server/tenant"
 import { clientMeta, fileResponse, listQuery, metaOf, ok, rateLimit, readJson, toPlain } from "@/server/http"
 import { identitySetPassword, managedPassword, provisionIdentity } from "@/server/identity-client"
 import { notifyUsers } from "@/server/notify"
@@ -69,7 +70,9 @@ export async function dashboard(req: Request) {
   await runMaintenance()
   const vendorId = user.portal === "VENDOR" ? user.vendorId : null
   if (user.portal === "VENDOR" && !vendorId) throw new ApiError(403, "Vendor profile missing.")
-  const vendorWhere = vendorId ? { vendorId } : {}
+  const organizationId = user.portal === "VENDOR" ? undefined : businessScope(user).organizationId
+  const vendorWhere = vendorId ? { vendorId } : { organizationId }
+  const companyWhere = vendorId ? { id: vendorId, deletedAt: null } : { organizationId, deletedAt: null }
   const [
     vendors,
     pendingVendors,
@@ -85,15 +88,15 @@ export async function dashboard(req: Request) {
     pendingInvoices,
     outstanding,
   ] = await Promise.all([
-    prisma.vendor.count({ where: { deletedAt: null, ...(vendorId ? { id: vendorId } : {}) } }),
-    prisma.vendor.count({ where: { deletedAt: null, status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, ...(vendorId ? { id: vendorId } : {}) } }),
-    prisma.vendor.count({ where: { deletedAt: null, status: "APPROVED", ...(vendorId ? { id: vendorId } : {}) } }),
-    prisma.vendor.count({ where: { deletedAt: null, status: "ACTIVE", ...(vendorId ? { id: vendorId } : {}) } }),
-    prisma.vendor.count({ where: { deletedAt: null, status: "SUSPENDED", ...(vendorId ? { id: vendorId } : {}) } }),
-    prisma.vendorDocument.count({ where: { ...vendorWhere, status: { in: ["EXPIRING_SOON", "EXPIRED"] } } }),
-    prisma.approvalRequest.count({ where: { status: "PENDING", ...(vendorId ? { vendorId } : {}) } }),
-    prisma.event.count({ where: { deletedAt: null, status: "ACTIVE", ...(vendorId ? { vendors: { some: { vendorId } } } : {}) } }),
-    prisma.rfq.count({ where: { status: { in: ["SENT", "DRAFT"] }, ...(vendorId ? { vendors: { some: { vendorId } } } : {}) } }),
+    prisma.vendor.count({ where: companyWhere }),
+    prisma.vendor.count({ where: { ...companyWhere, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+    prisma.vendor.count({ where: { ...companyWhere, status: "APPROVED" } }),
+    prisma.vendor.count({ where: { ...companyWhere, status: "ACTIVE" } }),
+    prisma.vendor.count({ where: { ...companyWhere, status: "SUSPENDED" } }),
+    prisma.vendorDocument.count({ where: { status: { in: ["EXPIRING_SOON", "EXPIRED"] }, ...(vendorId ? { vendorId } : { vendor: { organizationId } }) } }),
+    prisma.approvalRequest.count({ where: { status: "PENDING", ...(vendorId ? { vendorId } : { organizationId }) } }),
+    prisma.event.count({ where: { deletedAt: null, status: "ACTIVE", ...(vendorId ? { vendors: { some: { vendorId } } } : { organizationId }) } }),
+    prisma.rfq.count({ where: { status: { in: ["SENT", "DRAFT"] }, ...(vendorId ? { vendors: { some: { vendorId } } } : { organizationId }) } }),
     prisma.quotation.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, ...vendorWhere } }),
     prisma.purchaseOrder.count({ where: { status: { in: ["ISSUED", "ACKNOWLEDGED", "PARTIALLY_FULFILLED"] }, ...vendorWhere } }),
     prisma.invoice.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "APPROVED"] }, ...vendorWhere } }),
@@ -110,19 +113,19 @@ export async function dashboard(req: Request) {
   for (const month of months) {
     registrations.push({
       month: month.label,
-      count: await prisma.vendor.count({ where: { createdAt: { gte: month.start, lt: month.end }, ...(vendorId ? { id: vendorId } : {}) } }),
+      count: await prisma.vendor.count({ where: { ...companyWhere, createdAt: { gte: month.start, lt: month.end } } }),
     })
     approvals.push({
       month: month.label,
-      count: await prisma.vendor.count({ where: { approvedAt: { gte: month.start, lt: month.end }, ...(vendorId ? { id: vendorId } : {}) } }),
+      count: await prisma.vendor.count({ where: { ...companyWhere, approvedAt: { gte: month.start, lt: month.end } } }),
     })
   }
   const categoryGroups = await prisma.vendorCategory.findMany({
-    include: { _count: { select: { vendors: true } } },
+    include: { _count: { select: { vendors: { where: { vendor: companyWhere } } } } },
     orderBy: { name: "asc" },
   })
   const eventGroups = await prisma.event.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, ...(vendorId ? { vendors: { some: { vendorId } } } : { organizationId }) },
     include: { _count: { select: { vendors: true } } },
     orderBy: { startDate: "desc" },
     take: 6,
@@ -132,14 +135,14 @@ export async function dashboard(req: Request) {
     _sum: { total: true },
     orderBy: { _sum: { total: "desc" } },
     take: 6,
-    where: vendorId ? { vendorId } : {},
+    where: vendorWhere,
   })
   const spendVendors = await prisma.vendor.findMany({ where: { id: { in: spend.map((item) => item.vendorId) } }, select: { id: true, legalName: true } })
   const invoiceGroups = await prisma.invoice.groupBy({ by: ["status"], _count: true, where: vendorWhere })
   const compliance = await prisma.vendor.groupBy({
     by: ["status"],
     _count: true,
-    where: { deletedAt: null, ...(vendorId ? { id: vendorId } : {}) },
+    where: companyWhere,
   })
   const openTasks = await prisma.task.count({ where: { ...vendorWhere, status: { in: ["PENDING", "IN_PROGRESS", "SUBMITTED", "UNDER_REVIEW"] } } })
   const vendor = vendorId
@@ -170,11 +173,29 @@ export async function dashboard(req: Request) {
       },
       registrations,
       approvals,
-      categories: categoryGroups.map((item) => ({ name: item.name, count: item._count.vendors })),
+      categories: categoryGroups.map((item) => ({ name: item.name, count: item._count.vendors })).filter((item) => item.count > 0),
       events: eventGroups.map((item) => ({ name: item.name, count: item._count.vendors })),
       spending: spend.map((item) => ({ name: spendVendors.find((vendorRow) => vendorRow.id === item.vendorId)?.legalName || "Vendor", total: Number(item._sum.total || 0) })),
       invoices: invoiceGroups.map((item) => ({ status: item.status, count: item._count })),
       compliance: compliance.map((item) => ({ label: item.status, count: item._count })),
+      documents: vendorId
+        ? await prisma.vendorDocument.findMany({ where: { vendorId }, orderBy: { expiryDate: "asc" }, take: 8, select: { id: true, title: true, status: true, expiryDate: true } })
+        : [],
+      rfqs: vendorId
+        ? await prisma.rfq.findMany({ where: { vendors: { some: { vendorId } } }, orderBy: { deadline: "asc" }, take: 8, select: { id: true, number: true, title: true, status: true, deadline: true } })
+        : await prisma.rfq.findMany({ where: { organizationId }, orderBy: { deadline: "asc" }, take: 8, select: { id: true, number: true, title: true, status: true, deadline: true } }),
+      invoiceRows: await prisma.invoice.findMany({
+        where: vendorWhere,
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, number: true, total: true, status: true, vendor: { select: { legalName: true } } },
+      }),
+      paymentRows: await prisma.payment.findMany({
+        where: vendorWhere,
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { id: true, reference: true, amount: true, status: true, vendor: { select: { legalName: true } } },
+      }),
     },
     "Dashboard loaded.",
   )

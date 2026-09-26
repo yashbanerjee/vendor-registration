@@ -3,11 +3,18 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { RecordTable } from "@/components/crm/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { api } from "@/lib/api-client"
+
+function when(value?: string | null) {
+  if (!value) return "—"
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("en-AE", { dateStyle: "medium", timeStyle: "short" })
+}
 
 type Campaign = { id: string; name: string; subject: string; status: string; category: string; createdAt: string; _count?: { messages: number } }
 type Template = { id: string; key: string; name: string; category: string; subject: string; text: string; html: string; active: boolean }
@@ -61,21 +68,19 @@ export function EmailCampaignList() {
         </div>
         {preview && <p className="text-sm text-muted-foreground md:col-span-2">{preview}</p>}
       </Card>
-      <Card className="divide-y divide-border">
-        {rows.map((row) => (
-          <Link key={row.id} href={`/admin/email/${row.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted">
-            <div>
-              <div className="font-medium">{row.name}</div>
-              <div className="text-sm text-muted-foreground">{row.subject}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">{row._count?.messages || 0}</span>
-              <Badge value={row.status} />
-            </div>
-          </Link>
-        ))}
-        {rows.length === 0 && <p className="p-4 text-sm text-muted-foreground">No campaigns yet.</p>}
-      </Card>
+      <RecordTable
+        rows={rows}
+        empty="No campaigns yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Campaign", cell: (row) => <Link href={`/admin/email/${row.id}`} className="font-medium hover:underline">{row.name}</Link> },
+          { header: "Subject", cell: (row) => row.subject },
+          { header: "Category", cell: (row) => row.category },
+          { header: "Recipients", cell: (row) => row._count?.messages || 0 },
+          { header: "Status", cell: (row) => <Badge value={row.status} /> },
+          { header: "Created", cell: (row) => when(row.createdAt) },
+        ]}
+      />
     </div>
   )
 }
@@ -130,17 +135,21 @@ export function EmailCampaignDetail({ id }: { id: string }) {
         <Input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search recipient email" className="max-w-sm" />
         <Button variant="outline" onClick={() => load().catch((error) => toast.error(error.message))}>Search</Button>
       </div>
-      <Card className="divide-y divide-border">
-        {messages.map((message) => (
-          <Link key={message.id} href={`/admin/email/messages/${message.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted">
-            <div>
-              <div className="font-medium">{message.recipientEmail}</div>
-              <div className="text-sm text-muted-foreground">Tracking detected opens {message.openCount}. Clicks {message.clickCount}.</div>
-            </div>
-            <Badge value={message.status} />
-          </Link>
-        ))}
-      </Card>
+      <RecordTable
+        rows={messages}
+        empty="No messages in this campaign."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Recipient", cell: (row) => <Link href={`/admin/email/messages/${row.id}`} className="font-medium hover:underline">{row.recipientEmail}</Link> },
+          { header: "Name", cell: (row) => row.recipientName || "—" },
+          { header: "Subject", cell: (row) => row.subject },
+          { header: "Status", cell: (row) => <Badge value={row.status} /> },
+          { header: "Sent", cell: (row) => when(row.sentAt) },
+          { header: "Delivered", cell: (row) => when(row.deliveredAt) },
+          { header: "Opens", cell: (row) => row.openCount },
+          { header: "Clicks", cell: (row) => row.clickCount },
+        ]}
+      />
     </div>
   )
 }
@@ -163,12 +172,15 @@ export function EmailMessageDetail({ id }: { id: string }) {
         <div>Provider message id: {message.providerMessageId || "—"}</div>
         {message.bounceReason && <div>Bounce: {message.bounceType} — {message.bounceReason}</div>}
       </Card>
-      <Card className="space-y-2 p-4">
-        <h2 className="font-medium">Timeline</h2>
-        {message.events.map((event) => (
-          <div key={event.id} className="text-sm">{event.eventType} · {new Date(event.timestamp).toLocaleString()}</div>
-        ))}
-      </Card>
+      <RecordTable
+        rows={message.events}
+        empty="No delivery events yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Event", cell: (row) => <Badge value={row.eventType} /> },
+          { header: "Time", cell: (row) => when(row.timestamp) },
+        ]}
+      />
     </div>
   )
 }
@@ -201,9 +213,18 @@ export function EmailTemplates() {
         </div>
         {preview && <pre className="whitespace-pre-wrap text-sm text-muted-foreground">{preview}</pre>}
       </Card>
-      <Card className="divide-y divide-border">
-        {rows.map((row) => <button key={row.id} className="block w-full px-4 py-3 text-left hover:bg-muted" onClick={() => setForm(row)}><div className="font-medium">{row.name}</div><div className="text-sm text-muted-foreground">{row.key} · {row.category}</div></button>)}
-      </Card>
+      <RecordTable
+        rows={rows}
+        empty="No templates yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Name", cell: (row) => <button className="font-medium hover:underline" onClick={() => setForm(row)}>{row.name}</button> },
+          { header: "Key", cell: (row) => row.key },
+          { header: "Category", cell: (row) => row.category },
+          { header: "Subject", cell: (row) => row.subject },
+          { header: "Active", cell: (row) => <Badge value={row.active ? "ACTIVE" : "SUSPENDED"} /> },
+        ]}
+      />
     </div>
   )
 }
@@ -218,9 +239,19 @@ export function EmailMessageSearch() {
     <div className="space-y-5">
       <h1 className="text-xl font-medium">Email messages</h1>
       <div className="flex gap-2"><Input value={q} onChange={(event) => setQ(event.target.value)} placeholder="vendor@example.com" className="max-w-sm" /><Button onClick={() => search().catch((error) => toast.error(error.message))}>Search</Button></div>
-      <Card className="divide-y divide-border">
-        {rows.map((row) => <Link key={row.id} href={`/admin/email/messages/${row.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-muted"><span>{row.recipientEmail}</span><Badge value={row.status} /></Link>)}
-      </Card>
+      <RecordTable
+        rows={rows}
+        empty="Search for a recipient to see messages."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Recipient", cell: (row) => <Link href={`/admin/email/messages/${row.id}`} className="font-medium hover:underline">{row.recipientEmail}</Link> },
+          { header: "Subject", cell: (row) => row.subject },
+          { header: "Status", cell: (row) => <Badge value={row.status} /> },
+          { header: "Sent", cell: (row) => when(row.sentAt) },
+          { header: "Opens", cell: (row) => row.openCount },
+          { header: "Clicks", cell: (row) => row.clickCount },
+        ]}
+      />
     </div>
   )
 }
@@ -241,20 +272,29 @@ export function SuppressionList() {
         <h1 className="text-xl font-medium">Suppression list</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Hard bounces and complaints stop future marketing mail. Transactional messages such as approvals, purchase orders, and compliance requests stay available unless you remove the address here.</p>
       </div>
-      <Card className="divide-y divide-border">
-        {rows.map((row) => (
-          <div key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div><div className="font-medium">{row.email}</div><div className="text-sm text-muted-foreground">{row.reason} {row.bounceType ? `· ${row.bounceType}` : ""}</div></div>
-            <Button size="sm" variant="outline" onClick={async () => { await api(`/api/email/suppressions/${row.id}`, { method: "DELETE" }); load() }}>Remove</Button>
-          </div>
-        ))}
-        {rows.length === 0 && <p className="p-4 text-sm text-muted-foreground">No suppressed addresses.</p>}
-      </Card>
-      <Card className="divide-y divide-border">
-        <div className="px-4 py-3 font-medium">Marketing unsubscribes</div>
-        {unsubscribed.map((row) => <div key={row.id} className="px-4 py-3 text-sm">{row.email} · {row.category}</div>)}
-        {unsubscribed.length === 0 && <p className="p-4 text-sm text-muted-foreground">No marketing unsubscribes.</p>}
-      </Card>
+      <RecordTable
+        rows={rows}
+        empty="No suppressed addresses."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Email", className: "font-medium", cell: (row) => row.email },
+          { header: "Reason", cell: (row) => row.reason },
+          { header: "Bounce", cell: (row) => row.bounceType || "—" },
+          { header: "", cell: (row) => <Button size="sm" variant="outline" onClick={async () => { await api(`/api/email/suppressions/${row.id}`, { method: "DELETE" }); load() }}>Remove</Button> },
+        ]}
+      />
+      <div>
+        <h2 className="mb-2 font-medium">Marketing unsubscribes</h2>
+        <RecordTable
+          rows={unsubscribed}
+          empty="No marketing unsubscribes."
+          rowKey={(row) => row.id}
+          columns={[
+            { header: "Email", className: "font-medium", cell: (row) => row.email },
+            { header: "Category", cell: (row) => row.category },
+          ]}
+        />
+      </div>
     </div>
   )
 }
@@ -279,26 +319,30 @@ export function QueueMonitor() {
         <h1 className="text-xl font-medium">Queues</h1>
         <p className="mt-1 text-sm text-muted-foreground">Completed in the last minute: {data?.completedLastMinute || 0}. Jobs stay in PostgreSQL. Redis is used as well when a Redis URL is saved in email settings.</p>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {Object.entries(data?.queues || {}).map(([queue, counts]) => (
-          <Card key={queue} className="p-4">
-            <h2 className="font-medium capitalize">{queue}</h2>
-            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-              {Object.entries(counts).map(([status, count]) => <div key={status} className="flex justify-between"><span>{status.toLowerCase()}</span><span>{count}</span></div>)}
-            </div>
-          </Card>
-        ))}
+      <RecordTable
+        rows={Object.entries(data?.queues || {}).flatMap(([queue, counts]) => Object.entries(counts).map(([status, count]) => ({ queue, status, count })))}
+        empty="No queue activity yet."
+        rowKey={(row) => `${row.queue}-${row.status}`}
+        columns={[
+          { header: "Queue", className: "font-medium capitalize", cell: (row) => row.queue },
+          { header: "Status", cell: (row) => <Badge value={row.status} /> },
+          { header: "Jobs", cell: (row) => row.count },
+        ]}
+      />
+      <div>
+        <h2 className="mb-2 font-medium">Dead letter · email</h2>
+        <RecordTable
+          rows={dead}
+          empty="No dead-letter email jobs."
+          rowKey={(row) => row.id}
+          columns={[
+            { header: "Job", className: "font-medium", cell: (row) => row.name },
+            { header: "Attempts", cell: (row) => row.attempts },
+            { header: "Error", cell: (row) => row.lastError || "—" },
+            { header: "", cell: (row) => <Button size="sm" variant="outline" onClick={async () => { await api("/api/queues/email/retry", { method: "POST", body: JSON.stringify({ jobId: row.id }) }); toast.success("Job queued again."); load() }}>Retry</Button> },
+          ]}
+        />
       </div>
-      <Card className="space-y-3 p-4">
-        <h2 className="font-medium">Dead letter · email</h2>
-        {dead.map((job) => (
-          <div key={job.id} className="flex items-center justify-between gap-3 text-sm">
-            <div><div className="font-medium">{job.name}</div><div className="text-muted-foreground">{job.lastError}</div></div>
-            <Button size="sm" variant="outline" onClick={async () => { await api("/api/queues/email/retry", { method: "POST", body: JSON.stringify({ jobId: job.id }) }); toast.success("Job queued again."); load() }}>Retry</Button>
-          </div>
-        ))}
-        {dead.length === 0 && <p className="text-sm text-muted-foreground">No dead-letter email jobs.</p>}
-      </Card>
     </div>
   )
 }

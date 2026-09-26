@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { PERMISSION_ACTIONS, PERMISSION_MODULES } from "@/lib/constants"
+import { RecordTable } from "@/components/crm/data-table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input, Label, Select } from "@/components/ui/input"
@@ -26,15 +28,19 @@ export function RolesPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Roles</h1>
-      <div className="grid gap-3 lg:grid-cols-2">
-        {roles.map((role) => (
-          <Card key={role.id} className="p-4 text-sm">
-            <div className="font-medium">{role.name}</div>
-            <p className="text-muted-foreground">{role.description} · {role.portal}</p>
-            <p className="mt-2">{role.permissions.map((permission) => `${permission.module}: ${permission.actions.join(", ")}`).slice(0, 3).join(" · ")}</p>
-          </Card>
-        ))}
-      </div>
+      <RecordTable
+        rows={roles}
+        empty="No roles yet."
+        rowKey={(row) => row.id}
+        columns={[
+          { header: "Role", className: "font-medium", cell: (row) => row.name },
+          { header: "Slug", cell: (row) => row.slug },
+          { header: "Portal", cell: (row) => <Badge value={row.portal} /> },
+          { header: "Description", cell: (row) => row.description || "—" },
+          { header: "Permissions", cell: (row) => row.permissions.length },
+          { header: "System", cell: (row) => row.isSystem ? "Yes" : "No" },
+        ]}
+      />
       <Card className="space-y-3 p-4">
         <h2 className="font-medium">New role</h2>
         <div className="grid gap-3 md:grid-cols-2">

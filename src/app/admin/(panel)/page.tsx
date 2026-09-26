@@ -15,5 +15,5 @@ export default async function AdminHome() {
   ])
   if (!user) return null
   if (user.portal === "SUPER_ADMIN") return <PlatformHome />
-  return <Dashboard portal="admin" features={features} currency={company?.currency || "AED"} />
+  return <Dashboard portal="admin" user={user} features={features} currency={company?.currency || "AED"} />
 }
