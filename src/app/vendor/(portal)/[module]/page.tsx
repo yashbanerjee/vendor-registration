@@ -3,9 +3,13 @@ import { ModuleUnavailable, moduleEnabled } from "@/components/crm/feature-gate"
 import { ModuleScreen } from "@/components/crm/module-screen"
 import { moduleByKey } from "@/config/modules"
 import { prisma } from "@/server/db"
+import { duringRequest } from "@/server/live"
 import { getSessionUser } from "@/server/session"
 
+export const dynamic = "force-dynamic"
+
 export default async function VendorModule({ params }: { params: Promise<{ module: string }> }) {
+  await duringRequest()
   const { module } = await params
   const user = await getSessionUser()
   const company = await prisma.companySetting.findUnique({ where: { id: "default" } })

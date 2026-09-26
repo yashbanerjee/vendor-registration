@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation"
 import { Shell } from "@/components/crm/shell"
 import { prisma } from "@/server/db"
+import { duringRequest } from "@/server/live"
 import { getSessionUser } from "@/server/session"
 
+export const dynamic = "force-dynamic"
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  await duringRequest()
   let user
   try {
     user = await getSessionUser()

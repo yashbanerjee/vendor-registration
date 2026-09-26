@@ -3,9 +3,12 @@ import { Inter } from "next/font/google"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "@/components/theme-provider"
 import { prisma } from "@/server/db"
+import { duringRequest } from "@/server/live"
 import "./globals.css"
 
 const sans = Inter({ subsets: ["latin"], variable: "--font-sans" })
+
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata(): Promise<Metadata> {
   const company = await loadCompany()
@@ -22,6 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function loadCompany() {
+  await duringRequest()
   try {
     return await prisma.companySetting.findUnique({ where: { id: "default" } })
   } catch {

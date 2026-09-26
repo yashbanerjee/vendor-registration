@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { prisma } from "@/server/db"
+import { duringRequest } from "@/server/live"
 
 export async function SiteHeader() {
   const company = await safeCompany()
@@ -45,6 +46,7 @@ export async function SiteFooter() {
 }
 
 export async function safeCompany() {
+  await duringRequest()
   try {
     return await prisma.companySetting.findUnique({ where: { id: "default" } })
   } catch {
