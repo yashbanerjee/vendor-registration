@@ -20,6 +20,26 @@ export async function routeDomainEvent(eventType: string, payload: Record<string
     })
     return
   }
+  if (eventType.startsWith("Approval")) {
+    const organizationId = String(payload.organizationId || "")
+    const admins = organizationId
+      ? await prisma.user.findMany({ where: { organizationId, status: "ACTIVE", deletedAt: null, portal: "ADMIN" }, select: { id: true }, take: 25 })
+      : []
+    await enqueue({
+      queue: "notification",
+      name: "approval",
+      payload: {
+        ...payload,
+        userIds: admins.map((item) => item.id),
+        title: "Approval update",
+        body: `${eventType.replace(/([A-Z])/g, " $1").trim()}`,
+        type: "approval",
+        link: "/admin/approvals",
+      },
+      idempotencyKey: `${eventType}:${String(payload.requestId || eventId)}`,
+    })
+    return
+  }
   if (eventType === "VendorApproved" || eventType === "VendorRejected") {
     const vendorId = String(payload.vendorId || "")
     const vendor = vendorId ? await prisma.vendor.findUnique({ where: { id: vendorId }, include: { users: { where: { deletedAt: null } } } }) : null

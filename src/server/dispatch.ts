@@ -10,11 +10,28 @@ import * as finance from "@/server/handlers/finance"
 import * as platform from "@/server/handlers/platform"
 import * as email from "@/server/handlers/email"
 import * as queues from "@/server/handlers/queues"
+import * as org from "@/server/handlers/org"
 
 type Handler = (req: Request, params: Record<string, string>) => Promise<Response>
 
 const routes: { method: string; pattern: string; handler: Handler }[] = [
   { method: "GET", pattern: "health", handler: () => platform.health() },
+  { method: "GET", pattern: "platform/summary", handler: () => org.platformSummary() },
+  { method: "GET", pattern: "organizations", handler: () => org.listOrganizations() },
+  { method: "POST", pattern: "organizations", handler: (req) => org.saveOrganization(req, {}) },
+  { method: "PATCH", pattern: "organizations/:id", handler: (req, params) => org.saveOrganization(req, params) },
+  { method: "GET", pattern: "admins", handler: () => org.listOrgAdmins() },
+  { method: "POST", pattern: "admins", handler: (req) => org.saveOrgAdmin(req, {}) },
+  { method: "PATCH", pattern: "admins/:id", handler: (req, params) => org.saveOrgAdmin(req, params) },
+  { method: "POST", pattern: "admins/:id/status", handler: (req, params) => org.setOrgAdminStatus(req, params) },
+  { method: "GET", pattern: "teams", handler: () => org.listTeams() },
+  { method: "POST", pattern: "teams", handler: (req) => org.saveTeam(req, {}) },
+  { method: "PATCH", pattern: "teams/:id", handler: (req, params) => org.saveTeam(req, params) },
+  { method: "POST", pattern: "teams/:id/members", handler: (req, params) => org.saveTeamMember(req, params) },
+  { method: "GET", pattern: "approvals", handler: () => org.listApprovalInbox() },
+  { method: "POST", pattern: "approvals/:id", handler: (req, params) => org.actOnApproval(req, params) },
+  { method: "POST", pattern: "approval-workflows", handler: (req) => org.saveWorkflow(req) },
+  { method: "POST", pattern: "approval-delegations", handler: (req) => org.saveDelegation(req) },
   { method: "GET", pattern: "auth/setup", handler: () => auth.setupStatus() },
   { method: "POST", pattern: "auth/setup", handler: (req) => auth.setup(req) },
   { method: "POST", pattern: "auth/login", handler: (req) => auth.login(req) },

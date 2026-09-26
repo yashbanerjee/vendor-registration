@@ -1,4 +1,5 @@
 import { Dashboard } from "@/components/crm/dashboard"
+import { PlatformHome } from "@/components/crm/platform-home"
 import { prisma } from "@/server/db"
 import { duringRequest } from "@/server/live"
 import { getSessionUser } from "@/server/session"
@@ -13,5 +14,6 @@ export default async function AdminHome() {
     prisma.companySetting.findUnique({ where: { id: "default" } }),
   ])
   if (!user) return null
+  if (user.portal === "SUPER_ADMIN") return <PlatformHome />
   return <Dashboard portal="admin" features={features} currency={company?.currency || "AED"} />
 }

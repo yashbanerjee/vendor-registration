@@ -4,6 +4,8 @@ import { audit } from "@/server/audit"
 import { prisma } from "@/server/db"
 import { ApiError } from "@/server/errors"
 import { authorize, scopeVendor } from "@/server/guard"
+import { assertSameOrg, businessScope } from "@/server/tenant"
+import { startApproval, decideApproval } from "@/server/approval/engine"
 import { clientMeta, listQuery, metaOf, ok, parseDate, readJson, toPlain } from "@/server/http"
 import { nextCode } from "@/server/numbers"
 import { notifyStaff, notifyVendorUsers } from "@/server/notify"
@@ -20,6 +22,7 @@ export async function listInvoices(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.InvoiceWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.q ? { number: { contains: query.q, mode: "insensitive" } } : {}),
@@ -70,11 +73,13 @@ export async function saveInvoice(req: Request, params: Record<string, string>) 
     notes: body.notes,
     fileAssetId: body.fileAssetId,
     status: body.status || "SUBMITTED",
+    organizationId: user.organizationId,
   }
   let row
   if (params.id) {
     const existing = await prisma.invoice.findUnique({ where: { id: params.id } })
     if (!existing) throw new ApiError(404, "Invoice not found.")
+    assertSameOrg(user, existing.organizationId)
     scopeVendor(user, existing.vendorId)
     if (user.portal === "VENDOR" && !["DRAFT", "CHANGES_REQUESTED"].includes(existing.status)) {
       throw new ApiError(409, "This invoice can no longer be edited.")
@@ -90,14 +95,22 @@ export async function saveInvoice(req: Request, params: Record<string, string>) 
     })
   }
   const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } })
-  if (row.status === "SUBMITTED") await notifyStaff("invoice", { number: row.number, vendor: vendor?.legalName || "", status: row.status }, "/admin/invoices")
+  if (row.status === "SUBMITTED" && user.organizationId) {
+    await startApproval({ organizationId: user.organizationId, module: "invoices", entityType: "invoice", entityId: row.id, vendorId, amount: Number(row.total) })
+    await notifyStaff("invoice", { number: row.number, vendor: vendor?.legalName || "", status: row.status }, "/admin/invoices")
+  }
   await audit({ userId: user.id, action: params.id ? "Updated invoice" : "Submitted invoice", module: "invoices", recordId: row.id, recordLabel: row.number, ...clientMeta(req) })
   return ok(toPlain(row), "Invoice saved.", undefined, params.id ? 200 : 201)
 }
 
 export async function reviewInvoice(req: Request, params: Record<string, string>) {
-  const user = await authorize({ module: "invoices", action: "APPROVE", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const user = await authorize({ module: "invoices", action: "APPROVE", portals: ["ADMIN"] })
   const body = z.object({ action: z.enum(["VERIFY", "APPROVE", "REJECT", "CHANGES"]), note: z.string().optional() }).parse(await readJson(req))
+  const pending = await prisma.approvalRequest.findFirst({ where: { entityType: "invoice", entityId: params.id, status: "PENDING", ...businessScope(user) } })
+  if (pending && body.action !== "VERIFY") {
+    const decided = await decideApproval(user, pending.id, body.action === "APPROVE" ? "APPROVE" : body.action === "REJECT" ? "REJECT" : "CHANGES", body.note)
+    return ok(decided, "Invoice approval updated.")
+  }
   const status = body.action === "VERIFY" ? "UNDER_REVIEW" : body.action === "APPROVE" ? "APPROVED" : body.action === "REJECT" ? "REJECTED" : "CHANGES_REQUESTED"
   const row = await prisma.invoice.update({ where: { id: params.id }, data: { status, notes: body.note }, include: { vendor: true } })
   await notifyVendorUsers(row.vendorId, "invoice", { number: row.number, vendor: row.vendor.legalName, status }, "/vendor/invoices")
@@ -110,6 +123,7 @@ export async function listPayments(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.PaymentWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.q ? { reference: { contains: query.q, mode: "insensitive" } } : {}),
@@ -160,6 +174,7 @@ export async function savePayment(req: Request, params: Record<string, string>) 
     dueDate: parseDate(body.dueDate),
     status,
     method: body.method,
+    organizationId: user.organizationId,
     notes: body.notes,
     paidAt: status === "PAID" ? new Date() : null,
   }

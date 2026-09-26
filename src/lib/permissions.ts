@@ -1,4 +1,5 @@
 import type { PublicUser } from "@/lib/types"
+import { moduleAllowed } from "@/lib/access-policy"
 
 export function can(
   user: Pick<PublicUser, "portal" | "role"> | null | undefined,
@@ -6,11 +7,10 @@ export function can(
   action: string,
 ) {
   if (!user) return false
-  if (user.portal === "SUPER_ADMIN" || user.role?.slug === "super-admin") return true
   const permission = user.role?.permissions.find((item) => item.module === module)
-  if (!permission) return false
-  if (permission.actions.includes("MANAGE")) return true
-  return permission.actions.includes(action)
+  const roleAllows = Boolean(permission && (permission.actions.includes("MANAGE") || permission.actions.includes(action)))
+  if (user.portal === "SUPER_ADMIN" || user.role?.slug === "super-admin") return moduleAllowed("SUPER_ADMIN", module, roleAllows)
+  return moduleAllowed(user.portal, module, roleAllows)
 }
 
 export function canAny(

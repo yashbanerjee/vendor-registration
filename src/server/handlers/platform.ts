@@ -10,7 +10,7 @@ import { ApiError } from "@/server/errors"
 import { readAsset, saveUpload } from "@/server/files"
 import { authorize, isFeatureEnabled, requireUser } from "@/server/guard"
 import { clientMeta, fileResponse, listQuery, metaOf, ok, rateLimit, readJson, toPlain } from "@/server/http"
-import { hashPassword } from "@/server/password"
+import { identitySetPassword, managedPassword, provisionIdentity } from "@/server/identity-client"
 import { notifyUsers } from "@/server/notify"
 import { refreshDocumentStatuses } from "@/server/handlers/catalog"
 import { slugify } from "@/lib/format"
@@ -438,10 +438,11 @@ export async function saveIntegration(req: Request) {
 }
 
 export async function listUsers(req: Request) {
-  await authorize({ module: "users", action: "VIEW", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const actor = await authorize({ module: "users", action: "VIEW", portals: ["SUPER_ADMIN", "ADMIN"] })
   const query = listQuery(new URL(req.url))
   const where = {
     deletedAt: null,
+    ...(actor.portal === "SUPER_ADMIN" ? { memberships: { some: { isOrgAdmin: true } } } : { organizationId: actor.organizationId || "none", portal: "ADMIN" as const }),
     ...(query.q ? { OR: [{ name: { contains: query.q, mode: "insensitive" as const } }, { email: { contains: query.q, mode: "insensitive" as const } }] } : {}),
   }
   const [total, rows] = await Promise.all([
@@ -475,6 +476,8 @@ export async function saveUser(req: Request, params: Record<string, string>) {
   if (body.portal !== "ADMIN" && body.portal !== "SUPER_ADMIN") throw new ApiError(422, "Register vendors from the Vendors page. An email address is enough.")
   if (body.portal === "SUPER_ADMIN" && actor.portal !== "SUPER_ADMIN") throw new ApiError(403, "Only a super admin can assign that portal.")
   if (!params.id && !body.password) throw new ApiError(422, "A password is required for a new user.")
+  const identityUserId = body.password ? await provisionIdentity(body.email, body.password) : undefined
+  if (identityUserId && body.password) await identitySetPassword(identityUserId, body.password)
   const data = {
     name: body.name,
     email: body.email.toLowerCase(),
@@ -483,7 +486,7 @@ export async function saveUser(req: Request, params: Record<string, string>) {
     roleId: body.roleId,
     vendorId: body.vendorId || null,
     status: body.status || "ACTIVE",
-    ...(body.password ? { passwordHash: await hashPassword(body.password) } : {}),
+    ...(identityUserId ? { identityUserId, passwordHash: managedPassword() } : {}),
   }
   const row = params.id ? await prisma.user.update({ where: { id: params.id }, data }) : await prisma.user.create({ data: data as never })
   await audit({ userId: actor.id, action: params.id ? "Updated user" : "Created user", module: "users", recordId: row.id, recordLabel: row.email, ...clientMeta(req) })

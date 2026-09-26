@@ -5,6 +5,7 @@ import { audit } from "@/server/audit"
 import { prisma } from "@/server/db"
 import { ApiError } from "@/server/errors"
 import { authorize, scopeVendor } from "@/server/guard"
+import { assertSameOrg, businessScope } from "@/server/tenant"
 import { clientMeta, fileResponse, listQuery, metaOf, ok, parseDate, readJson, toPlain } from "@/server/http"
 import { nextCode } from "@/server/numbers"
 import { notifyStaff, notifyVendorUsers } from "@/server/notify"
@@ -35,6 +36,7 @@ export async function listEvents(req: Request) {
   const vendorId = user.portal === "VENDOR" ? user.vendorId : query.vendorId || undefined
   const where: Prisma.EventWhereInput = {
     deletedAt: null,
+    ...businessScope(user),
     ...(query.status ? { status: query.status as never } : {}),
     ...(vendorId ? { vendors: { some: { vendorId } } } : {}),
     ...(query.q
@@ -57,7 +59,7 @@ export async function listEvents(req: Request) {
 export async function getEvent(_req: Request, params: Record<string, string>) {
   const user = await authorize({ module: "events", action: "VIEW" })
   const event = await prisma.event.findFirst({
-    where: { id: params.id, deletedAt: null, ...(user.portal === "VENDOR" ? { vendors: { some: { vendorId: user.vendorId || "" } } } : {}) },
+    where: { id: params.id, deletedAt: null, ...businessScope(user), ...(user.portal === "VENDOR" ? { vendors: { some: { vendorId: user.vendorId || "" } } } : {}) },
     include: { vendors: { include: { vendor: { select: { id: true, legalName: true, vendorCode: true, status: true } } } } },
   })
   if (!event) throw new ApiError(404, "Event not found.")
@@ -92,7 +94,7 @@ export async function saveEvent(req: Request, params: Record<string, string>) {
   }
   const row = params.id
     ? await prisma.event.update({ where: { id: params.id }, data })
-    : await prisma.event.create({ data: { ...data, code: await nextCode("event", "EV") } })
+    : await prisma.event.create({ data: { ...data, organizationId: user.organizationId, code: await nextCode("event", "EV") } })
   await audit({ userId: user.id, action: params.id ? "Updated event" : "Created event", module: "events", recordId: row.id, recordLabel: row.name, ...clientMeta(req) })
   return ok(toPlain(row), params.id ? "Event updated." : "Event created.", undefined, params.id ? 200 : 201)
 }
@@ -130,6 +132,7 @@ export async function listRfqs(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.RfqWhereInput = {
+    ...businessScope(user),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.eventId ? { eventId: query.eventId } : {}),
     ...(vendorId ? { vendors: { some: { vendorId } } } : {}),
@@ -179,7 +182,7 @@ export async function saveRfq(req: Request, params: Record<string, string>) {
   }
   const row = params.id
     ? await prisma.rfq.update({ where: { id: params.id }, data })
-    : await prisma.rfq.create({ data: { ...data, number: await nextCode("rfq", "RFQ") } })
+    : await prisma.rfq.create({ data: { ...data, organizationId: user.organizationId, number: await nextCode("rfq", "RFQ") } })
   if (body.vendorIds) {
     await prisma.rfqVendor.deleteMany({ where: { rfqId: row.id } })
     if (body.vendorIds.length) {
@@ -214,6 +217,7 @@ export async function listQuotations(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.QuotationWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(new URL(req.url).searchParams.get("rfqId") ? { rfqId: new URL(req.url).searchParams.get("rfqId") } : {}),
@@ -269,6 +273,7 @@ export async function saveQuotation(req: Request, params: Record<string, string>
   if (params.id) {
     const existing = await prisma.quotation.findUnique({ where: { id: params.id } })
     if (!existing) throw new ApiError(404, "Quotation not found.")
+    assertSameOrg(user, existing.organizationId)
     scopeVendor(user, existing.vendorId)
     row = await prisma.quotation.update({
       where: { id: params.id },
@@ -276,7 +281,7 @@ export async function saveQuotation(req: Request, params: Record<string, string>
     })
   } else {
     row = await prisma.quotation.create({
-      data: { ...data, number: await nextCode("quotation", "QT"), items: { create: money.items } },
+      data: { ...data, organizationId: user.organizationId, number: await nextCode("quotation", "QT"), items: { create: money.items } },
     })
   }
   if (body.rfqId) {
@@ -307,6 +312,7 @@ export async function listPurchaseOrders(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.PurchaseOrderWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.q ? { number: { contains: query.q, mode: "insensitive" } } : {}),
@@ -373,7 +379,7 @@ export async function savePurchaseOrder(req: Request, params: Record<string, str
   }
   const row = params.id
     ? await prisma.purchaseOrder.update({ where: { id: params.id }, data: { ...data, items: { deleteMany: {}, create: money.items } } })
-    : await prisma.purchaseOrder.create({ data: { ...data, number: await nextCode("po", "PO"), items: { create: money.items } } })
+    : await prisma.purchaseOrder.create({ data: { ...data, organizationId: user.organizationId, number: await nextCode("po", "PO"), items: { create: money.items } } })
   if (row.status === "ISSUED") {
     const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } })
     await notifyVendorUsers(vendorId, "purchase_order", { number: row.number, vendor: vendor?.legalName || "" }, "/vendor/purchase-orders")
@@ -440,6 +446,7 @@ export async function listContracts(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.ContractWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.q ? { OR: [{ title: { contains: query.q, mode: "insensitive" } }, { number: { contains: query.q, mode: "insensitive" } }] } : {}),
@@ -489,7 +496,7 @@ export async function saveContract(req: Request, params: Record<string, string>)
   }
   const row = params.id
     ? await prisma.contract.update({ where: { id: params.id }, data })
-    : await prisma.contract.create({ data: { ...data, number: await nextCode("contract", "CT") } })
+    : await prisma.contract.create({ data: { ...data, organizationId: user.organizationId, number: await nextCode("contract", "CT") } })
   await audit({ userId: user.id, action: params.id ? "Updated contract" : "Created contract", module: "contracts", recordId: row.id, recordLabel: row.number, ...clientMeta(req) })
   return ok(toPlain(row), "Contract saved.", undefined, params.id ? 200 : 201)
 }

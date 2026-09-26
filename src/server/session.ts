@@ -36,6 +36,8 @@ export async function clearSessionCookie() {
 
 const userInclude = {
   role: { include: { permissions: true } },
+  memberships: { select: { organizationId: true, isOrgAdmin: true } },
+  teamMemberships: { select: { teamId: true, isTeamAdmin: true } },
   vendor: {
     select: {
       id: true,
@@ -57,6 +59,9 @@ export function toPublicUser(user: {
   portal: PublicUser["portal"]
   status: string
   mustChangePassword: boolean
+  organizationId: string | null
+  memberships: { organizationId: string; isOrgAdmin: boolean }[]
+  teamMemberships: { teamId: string; isTeamAdmin: boolean }[]
   vendorId: string | null
   vendor: PublicUser["vendor"]
   role: {
@@ -74,6 +79,10 @@ export function toPublicUser(user: {
     portal: user.portal,
     status: user.status,
     mustChangePassword: user.mustChangePassword,
+    organizationId: user.organizationId,
+    isOrgAdmin: user.memberships.some((item) => item.isOrgAdmin && item.organizationId === user.organizationId),
+    teamIds: user.teamMemberships.map((item) => item.teamId),
+    teamAdminIds: user.teamMemberships.filter((item) => item.isTeamAdmin).map((item) => item.teamId),
     vendorId: user.vendorId,
     vendor: user.vendor,
     role: user.role

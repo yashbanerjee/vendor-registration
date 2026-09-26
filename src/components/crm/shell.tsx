@@ -42,7 +42,7 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
-import { adminNav, vendorNav, type NavItem } from "@/config/navigation"
+import { adminNav, platformNav, vendorNav, type NavItem } from "@/config/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
@@ -87,7 +87,7 @@ export function Shell({
   const enabled = useMemo(() => new Set(features.filter((feature) => feature.enabled).map((feature) => feature.key)), [features])
   const approved = user.vendor?.status === "APPROVED" || user.vendor?.status === "ACTIVE"
   const onboarding = user.vendor?.status === "DRAFT" || user.vendor?.status === "CHANGES_REQUESTED"
-  const items = (portal === "admin" ? adminNav : vendorNav).filter((item) => {
+  const items = (portal === "vendor" ? vendorNav : user.portal === "SUPER_ADMIN" ? platformNav : adminNav).filter((item) => {
     if (item.feature && !enabled.has(item.feature)) return false
     if (item.superOnly && user.portal !== "SUPER_ADMIN") return false
     if (item.module && !can(user, item.module, "VIEW")) return false

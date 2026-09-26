@@ -10,7 +10,8 @@ import { authorize, isFeatureEnabled, scopeVendor } from "@/server/guard"
 import { allowedSort, clientMeta, listQuery, metaOf, ok, parseDate, readJson, toPlain } from "@/server/http"
 import { nextCode } from "@/server/numbers"
 import { notifyStaff, notifyVendorUsers } from "@/server/notify"
-import { hashPassword } from "@/server/password"
+import { managedPassword, provisionIdentity } from "@/server/identity-client"
+import { assertSameOrg, businessScope } from "@/server/tenant"
 import { publishEvent } from "@/server/events/outbox"
 import { requestOrigin, sendMail } from "@/server/mail"
 import { can } from "@/lib/permissions"
@@ -300,6 +301,7 @@ export async function listVendors(req: Request) {
   const ownId = scopeVendor(user, query.vendorId)
   const where: Prisma.VendorWhereInput = {
     deletedAt: null,
+    ...businessScope(user),
     ...(ownId ? { id: ownId } : {}),
     ...(query.status ? { status: query.status as VendorStatus } : {}),
     ...(query.category ? { categories: { some: { categoryId: query.category } } } : {}),
@@ -329,7 +331,7 @@ export async function getVendor(req: Request, params: Record<string, string>) {
   const user = await authorize({ module: "vendors", action: "VIEW" })
   scopeVendor(user, params.id)
   const vendor = await prisma.vendor.findFirst({
-    where: { id: params.id, deletedAt: null },
+    where: { id: params.id, deletedAt: null, ...businessScope(user) },
     include: {
       contacts: true,
       categories: { include: { category: true } },
@@ -368,12 +370,16 @@ export async function openVendorAccess(vendorId: string, input: { email: string;
   const role = await prisma.role.findUnique({ where: { slug: "vendor" } })
   const password = `Aa1${randomBytes(6).toString("base64url")}`
   const name = input.name?.trim() || email
+  const vendorOrg = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { organizationId: true } })
+  const identityUserId = await provisionIdentity(email, password)
   const account = await prisma.user.create({
     data: {
       name,
       email,
       phone: input.phone,
-      passwordHash: await hashPassword(password),
+      passwordHash: managedPassword(),
+      identityUserId,
+      organizationId: vendorOrg?.organizationId,
       portal: "VENDOR",
       roleId: role?.id,
       vendorId,
@@ -404,6 +410,7 @@ export async function createVendor(req: Request) {
       vendorCode: await nextCode("vendor", "V"),
       legalName,
       status: "DRAFT",
+      organizationId: user.organizationId,
     },
   })
   await saveVendorDetails(vendor.id, { ...body, legalName }, user.id)
@@ -453,8 +460,9 @@ export async function reviewVendor(req: Request, params: Record<string, string>)
       note: z.string().max(2000).optional(),
     })
     .parse(await readJson(req))
-  const vendor = await prisma.vendor.findFirst({ where: { id: params.id, deletedAt: null } })
+  const vendor = await prisma.vendor.findFirst({ where: { id: params.id, deletedAt: null, ...businessScope(user) } })
   if (!vendor) throw new ApiError(404, "Vendor not found.")
+  assertSameOrg(user, vendor.organizationId)
   const meta = clientMeta(req)
   let status: VendorStatus = vendor.status
   let message = "Vendor updated."
@@ -625,18 +633,21 @@ export async function vendorActivity(_req: Request, params: Record<string, strin
 }
 
 export async function inviteVendor(req: Request, params: Record<string, string>) {
-  const user = await authorize({ module: "users", action: "CREATE", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const user = await authorize({ module: "vendors", action: "CREATE", portals: ["ADMIN"] })
   const body = z.object({ name: z.string().min(2), email: z.string().email(), phone: z.string().optional() }).parse(await readJson(req))
-  const vendor = await prisma.vendor.findFirst({ where: { id: params.id, deletedAt: null } })
+  const vendor = await prisma.vendor.findFirst({ where: { id: params.id, deletedAt: null, ...businessScope(user) } })
   if (!vendor) throw new ApiError(404, "Vendor not found.")
   const role = await prisma.role.findUnique({ where: { slug: "vendor" } })
   const password = `Aa1${randomBytes(6).toString("base64url")}`
+  const identityUserId = await provisionIdentity(body.email, password)
   const account = await prisma.user.create({
     data: {
       name: body.name,
       email: body.email.toLowerCase(),
       phone: body.phone,
-      passwordHash: await hashPassword(password),
+      passwordHash: managedPassword(),
+      identityUserId,
+      organizationId: vendor.organizationId,
       portal: "VENDOR",
       roleId: role?.id,
       vendorId: vendor.id,
@@ -648,10 +659,11 @@ export async function inviteVendor(req: Request, params: Record<string, string>)
 }
 
 export async function listApplications(req: Request) {
-  await authorize({ module: "vendors", action: "VIEW", portals: ["SUPER_ADMIN", "ADMIN"] })
+  const user = await authorize({ module: "vendors", action: "VIEW", portals: ["ADMIN"] })
   const query = listQuery(new URL(req.url))
   const where: Prisma.VendorWhereInput = {
     deletedAt: null,
+    ...businessScope(user),
     status: query.status ? (query.status as VendorStatus) : { in: ["SUBMITTED", "UNDER_REVIEW", "CHANGES_REQUESTED"] },
     ...(query.q ? { legalName: { contains: query.q, mode: "insensitive" } } : {}),
   }

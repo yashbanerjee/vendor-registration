@@ -8,6 +8,17 @@ export type NavItem = {
   section: string
 }
 
+export const platformNav: NavItem[] = [
+  { href: "/admin", label: "Dashboard", icon: "LayoutDashboard", section: "Platform" },
+  { href: "/admin/organizations", label: "Organizations", icon: "Building2", module: "settings", superOnly: true, section: "Platform" },
+  { href: "/admin/admins", label: "Admins", icon: "Users", module: "users", superOnly: true, section: "Platform" },
+  { href: "/admin/features", label: "Features", icon: "ToggleRight", module: "features", superOnly: true, section: "Platform" },
+  { href: "/admin/settings", label: "Platform settings", icon: "Settings", module: "settings", superOnly: true, section: "Platform" },
+  { href: "/admin/queues", label: "Queues", icon: "Activity", feature: "emailQueue", module: "settings", superOnly: true, section: "Platform" },
+  { href: "/admin/email", label: "Email", icon: "Mail", feature: "bulkEmail", module: "notifications", superOnly: true, section: "Platform" },
+  { href: "/admin/audit-logs", label: "Audit log", icon: "ScrollText", module: "audit", superOnly: true, section: "Platform" },
+]
+
 export const adminNav: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: "LayoutDashboard", section: "Overview" },
   { href: "/admin/vendors", label: "Vendors", icon: "Building2", feature: "vendorRegistration", module: "vendors", section: "Network" },
@@ -28,15 +39,17 @@ export const adminNav: NavItem[] = [
   { href: "/admin/performance", label: "Performance", icon: "Star", feature: "performance", module: "performance", section: "Insight" },
   { href: "/admin/support", label: "Support", icon: "LifeBuoy", feature: "support", module: "tickets", section: "Insight" },
   { href: "/admin/reports", label: "Reports", icon: "ChartColumn", feature: "reports", module: "reports", section: "Insight" },
+  { href: "/admin/approvals", label: "Approvals", icon: "ClipboardCheck", feature: "multiLevelApprovals", module: "approvals", section: "Work" },
+  { href: "/admin/teams", label: "Teams", icon: "Users", feature: "teams", module: "teams", section: "Organization" },
+  { href: "/admin/users", label: "Users", icon: "Users", module: "users", section: "Organization" },
   { href: "/admin/notifications", label: "Notifications", icon: "Bell", feature: "notifications", module: "notifications", section: "System" },
-  { href: "/admin/email", label: "Email campaigns", icon: "Mail", feature: "bulkEmail", module: "notifications", section: "Communication" },
-  { href: "/admin/email/templates", label: "Email templates", icon: "Mails", feature: "bulkEmail", module: "notifications", section: "Communication" },
-  { href: "/admin/email/messages", label: "Email messages", icon: "Inbox", feature: "bulkEmail", module: "notifications", section: "Communication" },
-  { href: "/admin/email/suppressions", label: "Suppression list", icon: "ShieldCheck", feature: "bounceProcessing", module: "notifications", section: "Communication" },
-  { href: "/admin/queues", label: "Queues", icon: "Activity", feature: "emailQueue", module: "settings", section: "Communication" },
-  { href: "/admin/users", label: "Users", icon: "Users", module: "users", superOnly: true, section: "System" },
+  { href: "/admin/email", label: "Email campaigns", icon: "Mail", feature: "bulkEmail", module: "notifications", superOnly: true, section: "Communication" },
+  { href: "/admin/email/templates", label: "Email templates", icon: "Mails", feature: "bulkEmail", module: "notifications", superOnly: true, section: "Communication" },
+  { href: "/admin/email/messages", label: "Email messages", icon: "Inbox", feature: "bulkEmail", module: "notifications", superOnly: true, section: "Communication" },
+  { href: "/admin/email/suppressions", label: "Suppression list", icon: "ShieldCheck", feature: "bounceProcessing", module: "notifications", superOnly: true, section: "Communication" },
+  { href: "/admin/queues", label: "Queues", icon: "Activity", feature: "emailQueue", module: "settings", superOnly: true, section: "Communication" },
   { href: "/admin/roles", label: "Roles", icon: "KeyRound", module: "roles", superOnly: true, section: "System" },
-  { href: "/admin/audit-logs", label: "Audit log", icon: "ScrollText", module: "audit", section: "System" },
+  { href: "/admin/audit-logs", label: "Audit log", icon: "ScrollText", module: "audit", superOnly: true, section: "System" },
   { href: "/admin/features", label: "Features", icon: "ToggleRight", module: "features", superOnly: true, section: "System" },
   { href: "/admin/settings", label: "Settings", icon: "Settings", module: "settings", superOnly: true, section: "System" },
 ]
@@ -44,7 +57,7 @@ export const adminNav: NavItem[] = [
 export const vendorNav: NavItem[] = [
   { href: "/vendor", label: "Dashboard", icon: "LayoutDashboard", section: "Overview" },
   { href: "/vendor/profile", label: "Company profile", icon: "Building2", module: "vendors", section: "Company" },
-  { href: "/vendor/documents", label: "Documents", icon: "Files", feature: "documents", module: "documents", section: "Company" },
+  { href: "/vendor/documents", label: "Company documentation", icon: "Files", feature: "documents", module: "documents", section: "Company" },
   { href: "/vendor/compliance", label: "Compliance", icon: "ShieldCheck", feature: "compliance", module: "documents", section: "Company" },
   { href: "/vendor/events", label: "Events", icon: "CalendarRange", feature: "events", module: "events", section: "Work" },
   { href: "/vendor/rfqs", label: "RFQs", icon: "Send", feature: "rfq", module: "rfqs", section: "Work" },

@@ -4,10 +4,10 @@ import { ApiError } from "@/server/errors"
 import { clientMeta, ok, rateLimit, readJson } from "@/server/http"
 import { audit } from "@/server/audit"
 import { notifyStaff } from "@/server/notify"
-import { hashPassword, verifyPassword } from "@/server/password"
 import { createSession, clearSessionCookie, getSessionUser, loadPublicUser } from "@/server/session"
 import { requireUser } from "@/server/guard"
 import { createSuperAdmin, ensurePlatformDefaults } from "@/server/bootstrap"
+import { identityChangePassword, identityLogin, managedPassword } from "@/server/identity-client"
 import { saveVendorDetails, submitVendor } from "@/server/handlers/vendors"
 
 const passwordSchema = z
@@ -63,12 +63,12 @@ export async function login(req: Request) {
     .parse(await readJson(req))
   const meta = clientMeta(req)
   rateLimit(`login:${meta.ip || "local"}:${body.email.toLowerCase()}`, 8, 15 * 60 * 1000)
-  const user = await prisma.user.findUnique({ where: { email: body.email.toLowerCase() } })
-  const valid = user ? await verifyPassword(body.password, user.passwordHash) : false
-  if (!user || !valid || user.deletedAt || user.status !== "ACTIVE") {
+  await ensurePlatformDefaults()
+  const identity = await identityLogin(body.email, body.password)
+  const user = await prisma.user.findFirst({ where: { OR: [{ identityUserId: identity.identityUserId }, { email: body.email.toLowerCase() }] } })
+  if (!user || user.deletedAt || user.status !== "ACTIVE") {
     throw new ApiError(401, "Email or password is incorrect.")
   }
-  await ensurePlatformDefaults()
   if (body.portal === "admin" && user.portal === "VENDOR") {
     throw new ApiError(403, "This account uses the vendor sign-in page.")
   }
@@ -104,10 +104,9 @@ export async function changePassword(req: Request) {
   if (!current) throw new ApiError(401, "Please sign in to continue.")
   const body = z.object({ currentPassword: z.string().min(1), password: passwordSchema }).parse(await readJson(req))
   const user = await prisma.user.findUnique({ where: { id: current.id } })
-  if (!user || !(await verifyPassword(body.currentPassword, user.passwordHash))) {
-    throw new ApiError(401, "The current password is incorrect.")
-  }
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(body.password), mustChangePassword: false } })
+  if (!user?.identityUserId) throw new ApiError(401, "The current password is incorrect.")
+  await identityChangePassword(user.identityUserId, body.currentPassword, body.password)
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: managedPassword(), mustChangePassword: false } })
   await audit({ userId: user.id, action: "Changed password", module: "auth", recordId: user.id, recordLabel: user.email, ...clientMeta(req) })
   return ok(await loadPublicUser(user.id), "Password updated.")
 }

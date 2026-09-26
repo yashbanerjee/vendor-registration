@@ -32,6 +32,10 @@ export const FEATURE_CATALOG = [
   { key: "importQueue", name: "Import Queue", description: "Process bulk imports in the background", group: "Communication", sortOrder: 39 },
   { key: "notificationQueue", name: "Notification Queue", description: "Create in-app notifications asynchronously", group: "Communication", sortOrder: 40 },
   { key: "realtimeEmail", name: "Real-time Email Dashboard", description: "Live campaign progress", group: "Communication", sortOrder: 41 },
+  { key: "teams", name: "Teams", description: "Organization teams and team admins", group: "Organization", sortOrder: 50 },
+  { key: "multiLevelApprovals", name: "Multi-Level Approvals", description: "Configurable approval workflows", group: "Organization", sortOrder: 51 },
+  { key: "approvalEscalation", name: "Approval Escalation", description: "Reminders and escalation", group: "Organization", sortOrder: 52 },
+  { key: "approvalDelegation", name: "Approval Delegation", description: "Delegate pending approvals", group: "Organization", sortOrder: 53 },
 ] as const
 
 export type FeatureKey = (typeof FEATURE_CATALOG)[number]["key"]
@@ -59,6 +63,8 @@ export const PERMISSION_MODULES = [
   "notifications",
   "audit",
   "features",
+  "teams",
+  "approvals",
 ] as const
 
 export const PERMISSION_ACTIONS = [
@@ -96,6 +102,8 @@ export const MODULE_FEATURE: Record<string, string | null> = {
   settings: null,
   audit: null,
   features: null,
+  teams: "teams",
+  approvals: "multiLevelApprovals",
 }
 
 export const EMIRATES = [

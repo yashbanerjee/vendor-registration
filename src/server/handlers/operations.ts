@@ -5,6 +5,7 @@ import { audit } from "@/server/audit"
 import { prisma } from "@/server/db"
 import { ApiError } from "@/server/errors"
 import { authorize, scopeVendor } from "@/server/guard"
+import { businessScope } from "@/server/tenant"
 import { clientMeta, listQuery, metaOf, ok, parseDate, readJson, toPlain } from "@/server/http"
 import { nextCode } from "@/server/numbers"
 import { notifyStaff, notifyVendorUsers } from "@/server/notify"
@@ -14,6 +15,7 @@ export async function listTasks(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.TaskWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.eventId ? { eventId: query.eventId } : {}),
@@ -61,6 +63,7 @@ export async function saveTask(req: Request, params: Record<string, string>) {
     dueDate: parseDate(body.dueDate),
     status: body.status || "PENDING",
     fileAssetId: body.fileAssetId,
+    organizationId: user.organizationId,
   }
   const row = params.id ? await prisma.task.update({ where: { id: params.id }, data }) : await prisma.task.create({ data })
   if (row.vendorId) await notifyVendorUsers(row.vendorId, "task", { title: row.title, status: row.status }, "/vendor/tasks")
@@ -83,6 +86,7 @@ export async function listDeliveries(req: Request) {
   const query = listQuery(new URL(req.url))
   const vendorId = scopeVendor(user, query.vendorId)
   const where: Prisma.DeliveryWhereInput = {
+    ...businessScope(user),
     ...(vendorId ? { vendorId } : {}),
     ...(query.status ? { status: query.status as never } : {}),
     ...(query.q ? { OR: [{ number: { contains: query.q, mode: "insensitive" } }, { material: { contains: query.q, mode: "insensitive" } }] } : {}),
@@ -148,7 +152,7 @@ export async function saveDelivery(req: Request, params: Record<string, string>)
   }
   const row = params.id
     ? await prisma.delivery.update({ where: { id: params.id }, data })
-    : await prisma.delivery.create({ data: { ...data, number: await nextCode("delivery", "DLV") } })
+    : await prisma.delivery.create({ data: { ...data, organizationId: user.organizationId, number: await nextCode("delivery", "DLV") } })
   await notifyStaff("delivery", { number: row.number, vendor: vendorId, status: row.status }, "/admin/deliveries")
   await audit({ userId: user.id, action: "Saved delivery", module: "deliveries", recordId: row.id, recordLabel: row.number, ...clientMeta(req) })
   return ok(toPlain(row), "Delivery saved.", undefined, params.id ? 200 : 201)

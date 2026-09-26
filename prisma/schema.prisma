@@ -229,8 +229,11 @@ enum NotificationChannel {
 
 model User {
   id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
+  email          String     @unique
+  passwordHash   String
+  identityUserId String?    @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   name         String
   phone        String?
   avatarUrl    String?
@@ -258,8 +261,11 @@ model User {
   taskComments         TaskComment[]
   ticketComments       TicketComment[]
   uploadedFiles        FileAsset[]
+  memberships          OrganizationMembership[]
+  teamMemberships      TeamMembership[]
 
   @@index([portal])
+  @@index([organizationId])
   @@index([vendorId])
   @@index([roleId])
 }
@@ -420,6 +426,7 @@ model Vendor {
   iban               String?
   accountName        String?
   isDemo             Boolean       @default(false)
+  organizationId     String?
   deletedAt          DateTime?
   submittedAt        DateTime?
   approvedAt         DateTime?
@@ -457,6 +464,7 @@ model Vendor {
   @@index([tradeLicenseNumber])
   @@index([legalName])
   @@index([deletedAt])
+  @@index([organizationId])
 }
 
 model VendorContact {
@@ -558,9 +566,10 @@ model CustomFieldValue {
 }
 
 model ApprovalWorkflow {
-  id         String            @id @default(cuid())
-  name       String
-  module     String
+  id             String            @id @default(cuid())
+  organizationId String?
+  name           String
+  module         String
   categoryId String?
   active     Boolean           @default(true)
   steps      ApprovalStep[]
@@ -576,6 +585,9 @@ model ApprovalStep {
   name       String
   sortOrder  Int
   roleSlug   String?
+  teamCode   String?
+  minAmount  Decimal?         @db.Decimal(14, 2)
+  maxAmount  Decimal?         @db.Decimal(14, 2)
   actions    ApprovalAction[]
 }
 
@@ -585,9 +597,11 @@ model ApprovalRequest {
   workflow    ApprovalWorkflow @relation(fields: [workflowId], references: [id])
   vendorId    String?
   vendor      Vendor?          @relation(fields: [vendorId], references: [id])
-  entityType  String
-  entityId    String
-  status      ApprovalStatus   @default(PENDING)
+  entityType     String
+  entityId       String
+  organizationId String?
+  amount         Decimal?         @db.Decimal(14, 2)
+  status         ApprovalStatus   @default(PENDING)
   currentStep Int              @default(0)
   actions     ApprovalAction[]
   createdAt   DateTime         @default(now())
@@ -636,8 +650,9 @@ model Event {
   eventType   String?
   description String?     @db.Text
   status      EventStatus @default(DRAFT)
-  isDemo      Boolean     @default(false)
-  deletedAt   DateTime?
+  isDemo         Boolean     @default(false)
+  organizationId String?
+  deletedAt      DateTime?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -672,6 +687,7 @@ model EventVendor {
 
 model Rfq {
   id               String    @id @default(cuid())
+  organizationId   String?
   number           String    @unique
   eventId          String?
   event            Event?    @relation(fields: [eventId], references: [id])
@@ -709,6 +725,7 @@ model RfqVendor {
 
 model Quotation {
   id              String          @id @default(cuid())
+  organizationId  String?
   number          String          @unique
   rfqId           String?
   rfq             Rfq?            @relation(fields: [rfqId], references: [id])
@@ -746,8 +763,9 @@ model QuotationItem {
 }
 
 model PurchaseOrder {
-  id            String       @id @default(cuid())
-  number        String       @unique
+  id             String       @id @default(cuid())
+  organizationId String?
+  number         String       @unique
   vendorId      String
   vendor        Vendor       @relation(fields: [vendorId], references: [id])
   eventId       String?
@@ -788,8 +806,9 @@ model PurchaseOrderItem {
 }
 
 model Contract {
-  id          String         @id @default(cuid())
-  number      String         @unique
+  id             String         @id @default(cuid())
+  organizationId String?
+  number         String         @unique
   title       String
   type        ContractType
   vendorId    String
@@ -813,8 +832,9 @@ model Contract {
 }
 
 model Task {
-  id            String     @id @default(cuid())
-  title         String
+  id             String     @id @default(cuid())
+  organizationId String?
+  title          String
   description   String?    @db.Text
   vendorId      String?
   vendor        Vendor?    @relation(fields: [vendorId], references: [id])
@@ -847,8 +867,9 @@ model TaskComment {
 }
 
 model Delivery {
-  id           String         @id @default(cuid())
-  number       String         @unique
+  id             String         @id @default(cuid())
+  organizationId String?
+  number         String         @unique
   vendorId     String
   vendor       Vendor         @relation(fields: [vendorId], references: [id])
   eventId      String?
@@ -942,8 +963,9 @@ model GatePass {
 }
 
 model Invoice {
-  id            String        @id @default(cuid())
-  number        String        @unique
+  id             String        @id @default(cuid())
+  organizationId String?
+  number         String        @unique
   vendorId      String
   vendor        Vendor        @relation(fields: [vendorId], references: [id])
   poId          String?
@@ -980,8 +1002,9 @@ model InvoiceItem {
 }
 
 model Payment {
-  id         String        @id @default(cuid())
-  reference  String        @unique
+  id             String        @id @default(cuid())
+  organizationId String?
+  reference      String        @unique
   vendorId   String
   vendor     Vendor        @relation(fields: [vendorId], references: [id])
   invoiceId  String?
@@ -1372,4 +1395,130 @@ model EmailAttachment {
   createdAt   DateTime     @default(now())
 
   @@index([messageId])
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  teams       Team[]
+  memberships OrganizationMembership[]
+}
+
+model OrganizationMembership {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  isOrgAdmin     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model Team {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  code           String
+  description    String?
+  status         String       @default("ACTIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  memberships    TeamMembership[]
+
+  @@unique([organizationId, code])
+}
+
+model TeamMembership {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  isTeamAdmin Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+}
+
+model IdentityAccount {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  status        String   @default("ACTIVE")
+  mfaEnabled    Boolean  @default(false)
+  mfaSecret     String?
+  failedAttempts Int     @default(0)
+  lockedUntil   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  refreshTokens IdentityRefreshToken[]
+  resetTokens   IdentityResetToken[]
+  audits        AuthAudit[]
+}
+
+model IdentityRefreshToken {
+  id         String          @id @default(cuid())
+  identityId String
+  identity   IdentityAccount @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  tokenHash  String          @unique
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+
+  @@index([identityId])
+}
+
+model IdentityAccessToken {
+  id         String   @id @default(cuid())
+  identityId String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([identityId])
+}
+
+model IdentityResetToken {
+  id         String          @id @default(cuid())
+  identityId String
+  identity   IdentityAccount @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  tokenHash  String          @unique
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+}
+
+model AuthAudit {
+  id         String          @id @default(cuid())
+  identityId String?
+  identity   IdentityAccount? @relation(fields: [identityId], references: [id])
+  action     String
+  ip         String?
+  createdAt  DateTime        @default(now())
+
+  @@index([identityId])
+}
+
+model ApprovalDelegation {
+  id             String    @id @default(cuid())
+  organizationId String
+  fromUserId     String
+  toUserId       String
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+
+  @@index([organizationId, toUserId])
+  @@index([fromUserId])
 }

@@ -180,8 +180,9 @@ export async function importOneRow(values: Record<string, string>, userId: strin
   const serviceNames = values.services ? values.services.split("|").map((item) => item.trim()).filter(Boolean) : []
   const services = serviceNames.length ? await prisma.vendorService.findMany({ where: { name: { in: serviceNames, mode: "insensitive" } } }) : []
   const term = values.paymentTerms ? await prisma.paymentTerm.findFirst({ where: { name: { equals: values.paymentTerms, mode: "insensitive" } } }) : null
+  const actor = await prisma.user.findUnique({ where: { id: userId }, select: { organizationId: true } })
   const vendor = await prisma.vendor.create({
-    data: { vendorCode: await nextCode("vendor", "V"), legalName: values.companyName, status: "DRAFT" },
+    data: { vendorCode: await nextCode("vendor", "V"), legalName: values.companyName, status: "DRAFT", organizationId: actor?.organizationId },
   })
   await saveVendorDetails(
     vendor.id,

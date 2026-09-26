@@ -21,6 +21,8 @@ export async function drainQueues(workerId: string, limit = 10) {
   if (running) return
   running = true
   try {
+    const { scanApprovalReminders } = await import("@/server/approval/engine")
+    await scanApprovalReminders().catch(() => undefined)
     await dispatchOutbox(limit)
     const jobs = await claimJobs(workerId, limit)
     for (const job of jobs) {

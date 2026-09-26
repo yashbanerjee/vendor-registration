@@ -13,6 +13,10 @@ export type PublicUser = {
   portal: Portal
   status: string
   mustChangePassword: boolean
+  organizationId: string | null
+  isOrgAdmin: boolean
+  teamIds: string[]
+  teamAdminIds: string[]
   vendorId: string | null
   vendor: {
     id: string

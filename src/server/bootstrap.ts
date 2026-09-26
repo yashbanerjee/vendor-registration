@@ -352,6 +352,104 @@ export async function ensurePlatformDefaults() {
       create: { key, name, category, subject, text, html },
     })
   }
+
+  const org = await prisma.organization.upsert({
+    where: { code: "VEDHA" },
+    update: {},
+    create: { name: "Vedha Technologies", code: "VEDHA", status: "ACTIVE" },
+  })
+  const teams = [
+    ["Accounts", "ACCOUNTS"],
+    ["Procurement", "PROCUREMENT"],
+    ["Technology", "TECHNOLOGY"],
+    ["Operations", "OPERATIONS"],
+    ["Events", "EVENTS"],
+  ] as const
+  for (const [name, code] of teams) {
+    await prisma.team.upsert({
+      where: { organizationId_code: { organizationId: org.id, code } },
+      update: {},
+      create: { organizationId: org.id, name, code, description: `${name} team` },
+    })
+  }
+  await prisma.user.updateMany({ where: { portal: "ADMIN", organizationId: null }, data: { organizationId: org.id } })
+  await prisma.vendor.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.event.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.rfq.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.quotation.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.purchaseOrder.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.contract.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.invoice.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.payment.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.task.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  await prisma.delivery.updateMany({ where: { organizationId: null }, data: { organizationId: org.id } })
+  const vendorUsers = await prisma.user.findMany({ where: { portal: "VENDOR", organizationId: null, vendorId: { not: null } }, include: { vendor: { select: { organizationId: true } } } })
+  for (const account of vendorUsers) {
+    if (account.vendor?.organizationId) await prisma.user.update({ where: { id: account.id }, data: { organizationId: account.vendor.organizationId } })
+  }
+  const orgAdmins = await prisma.user.findMany({ where: { role: { slug: "admin" }, deletedAt: null } })
+  for (const account of orgAdmins) {
+    await prisma.organizationMembership.upsert({
+      where: { userId_organizationId: { userId: account.id, organizationId: org.id } },
+      update: { isOrgAdmin: true },
+      create: { userId: account.id, organizationId: org.id, isOrgAdmin: true },
+    })
+  }
+  const adminRole = await prisma.role.findUnique({ where: { slug: "admin" } })
+  const staffRole = await prisma.role.findUnique({ where: { slug: "staff" } })
+  if (adminRole) {
+    for (const module of ["teams", "approvals"]) {
+      await prisma.permission.upsert({
+        where: { roleId_module: { roleId: adminRole.id, module } },
+        update: {},
+        create: { roleId: adminRole.id, module, actions: ["VIEW", "CREATE", "EDIT", "DELETE", "APPROVE", "REJECT"] },
+      })
+    }
+  }
+  if (staffRole) {
+    await prisma.permission.upsert({
+      where: { roleId_module: { roleId: staffRole.id, module: "approvals" } },
+      update: {},
+      create: { roleId: staffRole.id, module: "approvals", actions: ["VIEW", "APPROVE", "REJECT"] },
+    })
+    await prisma.permission.upsert({
+      where: { roleId_module: { roleId: staffRole.id, module: "teams" } },
+      update: {},
+      create: { roleId: staffRole.id, module: "teams", actions: ["VIEW"] },
+    })
+  }
+  const pendingIdentities = await prisma.user.findMany({ where: { identityUserId: null, deletedAt: null } })
+  for (const account of pendingIdentities) {
+    if (!account.passwordHash || account.passwordHash === "identity-managed") continue
+    const identity = await prisma.identityAccount.upsert({
+      where: { email: account.email.toLowerCase() },
+      update: {},
+      create: { email: account.email.toLowerCase(), passwordHash: account.passwordHash, status: account.status },
+    })
+    await prisma.user.update({ where: { id: account.id }, data: { identityUserId: identity.id, passwordHash: "identity-managed" } })
+  }
+  await prisma.systemSetting.upsert({
+    where: { key: "approval.reminders" },
+    update: {},
+    create: { key: "approval.reminders", value: { reminderHours: [24, 48], escalateHours: 72 }, group: "approvals" },
+  })
+  const invoiceWorkflow = await prisma.approvalWorkflow.findFirst({ where: { module: "invoices", organizationId: org.id } })
+  if (!invoiceWorkflow) {
+    await prisma.approvalWorkflow.create({
+      data: {
+        name: "Invoice approval",
+        module: "invoices",
+        organizationId: org.id,
+        steps: {
+          create: [
+            { name: "Accounts", sortOrder: 0, teamCode: "ACCOUNTS", roleSlug: "admin", maxAmount: 10000 },
+            { name: "Finance", sortOrder: 1, teamCode: "ACCOUNTS", roleSlug: "admin", minAmount: 10000, maxAmount: 50000 },
+            { name: "Management", sortOrder: 2, teamCode: "OPERATIONS", roleSlug: "admin", minAmount: 50000 },
+          ],
+        },
+      },
+    })
+  }
 }
 
 export async function createSuperAdmin(input: { name: string; email: string; password: string }) {
