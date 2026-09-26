@@ -398,11 +398,11 @@ export async function ensurePlatformDefaults() {
   const adminRole = await prisma.role.findUnique({ where: { slug: "admin" } })
   const staffRole = await prisma.role.findUnique({ where: { slug: "staff" } })
   if (adminRole) {
-    for (const module of ["teams", "approvals"]) {
+    for (const permissionModule of ["teams", "approvals"]) {
       await prisma.permission.upsert({
-        where: { roleId_module: { roleId: adminRole.id, module } },
+        where: { roleId_module: { roleId: adminRole.id, module: permissionModule } },
         update: {},
-        create: { roleId: adminRole.id, module, actions: ["VIEW", "CREATE", "EDIT", "DELETE", "APPROVE", "REJECT"] },
+        create: { roleId: adminRole.id, module: permissionModule, actions: ["VIEW", "CREATE", "EDIT", "DELETE", "APPROVE", "REJECT"] },
       })
     }
   }
