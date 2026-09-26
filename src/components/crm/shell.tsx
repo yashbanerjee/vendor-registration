@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  PanelLeft,
   QrCode,
   Receipt,
   Scale,
@@ -147,19 +148,21 @@ export function Shell({
 
   const sections = [...new Set(items.map((item) => item.section))]
 
+  const initials = user.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+
   const nav = (onNavigate?: () => void) => (
-    <div className="flex h-full flex-col">
-      <div className={cn("flex items-center gap-3 px-4 py-5", collapsed && "lg:px-3")}>
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-brass/20 text-sm font-semibold text-brass">{companyName.slice(0, 1)}</div>
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      <div className={cn("flex h-12 items-center gap-2 border-b border-sidebar-border px-3", collapsed && "lg:justify-center lg:px-2")}>
+        <div className="grid h-6 w-6 shrink-0 place-items-center rounded-[3px] bg-primary text-[11px] font-semibold text-primary-foreground">{companyName.slice(0, 1)}</div>
         <div className={cn("min-w-0", collapsed && "lg:hidden")}>
-          <div className="truncate text-sm font-semibold">{companyName}</div>
-          <div className="text-xs text-sidebar-muted">{portal === "admin" ? "Operations" : "Vendor portal"}</div>
+          <div className="truncate text-sm font-semibold leading-4">{companyName}</div>
+          <div className="truncate text-[11px] text-sidebar-muted">{portal === "admin" ? "Staff workspace" : "Vendor portal"}</div>
         </div>
       </div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-4">
+      <nav className="ads-scroll flex-1 space-y-4 overflow-y-auto px-2 py-3">
         {sections.map((section) => (
           <div key={section}>
-            <div className={cn("px-2 pb-1 text-[11px] uppercase tracking-[0.14em] text-sidebar-muted", collapsed && "lg:hidden")}>{section}</div>
+            <div className={cn("px-2 pb-1 text-xs font-semibold text-sidebar-muted", collapsed && "lg:hidden")}>{section}</div>
             <div className="space-y-0.5">
               {items.filter((item) => item.section === section).map((item) => {
                 const Icon = iconMap[item.icon as keyof typeof iconMap] || LayoutDashboard
@@ -169,9 +172,11 @@ export function Shell({
                     key={item.href}
                     href={item.href}
                     onClick={onNavigate}
+                    title={item.label}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                      active && "bg-sidebar-accent text-sidebar-foreground",
+                      "flex h-8 items-center gap-2 rounded-[3px] px-2 text-sm text-sidebar-foreground hover:bg-muted",
+                      active && "bg-sidebar-accent font-medium text-accent-foreground hover:bg-sidebar-accent",
+                      collapsed && "lg:justify-center lg:px-0",
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -187,22 +192,22 @@ export function Shell({
   )
 
   return (
-    <div className="min-h-screen bg-background" style={primaryColor ? ({ ["--brand-primary" as string]: primaryColor } as React.CSSProperties) : undefined}>
-      <aside className={cn("fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:block", collapsed ? "w-[4.5rem]" : "w-64")}>{nav()}</aside>
-      <div className={cn("min-h-screen", collapsed ? "lg:pl-[4.5rem]" : "lg:pl-64")}>
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur md:px-6">
+    <div className="min-h-screen bg-background text-foreground" style={primaryColor ? ({ ["--brand-primary" as string]: primaryColor } as React.CSSProperties) : undefined}>
+      <aside className={cn("fixed inset-y-0 left-0 z-30 hidden border-r border-sidebar-border lg:block", collapsed ? "w-12" : "w-60")}>{nav()}</aside>
+      <div className={cn("min-h-screen", collapsed ? "lg:pl-12" : "lg:pl-60")}>
+        <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b border-border bg-card px-3">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="hidden lg:inline-flex" onClick={() => setCollapsed((value) => !value)}>
-            {collapsed ? "Expand" : "Collapse"}
+          <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}>
+            <PanelLeft className="h-4 w-4" />
           </Button>
-          <button className="hidden h-10 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 text-left text-sm text-muted-foreground md:flex" onClick={() => setSearchOpen(true)}>
+          <button className="hidden h-8 max-w-xl flex-1 items-center gap-2 rounded-[3px] border-2 border-input bg-card px-2 text-left text-sm text-muted-foreground hover:bg-muted md:flex" onClick={() => setSearchOpen(true)}>
             <Search className="h-4 w-4" />
             Search vendors, events, orders
-            <span className="ml-auto text-xs">Ctrl K</span>
+            <span className="ml-auto rounded-[3px] border border-border px-1 text-[11px]">Ctrl K</span>
           </button>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={() => setSearchOpen(true)} className="md:hidden" aria-label="Search">
               <Search className="h-4 w-4" />
             </Button>
@@ -210,7 +215,7 @@ export function Shell({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
                   <Bell className="h-4 w-4" />
-                  {unread > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brass" />}
+                  {unread > 0 && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-destructive" />}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
@@ -233,8 +238,9 @@ export function Shell({
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="max-w-48">
-                  <span className="truncate">{user.name}</span>
+                <Button variant="ghost" className="max-w-56 px-1.5" aria-label="Account menu">
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">{initials}</span>
+                  <span className="hidden truncate sm:inline">{user.name}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -254,7 +260,7 @@ export function Shell({
             </DropdownMenu>
           </div>
         </header>
-        <main className="px-4 py-6 md:px-6">{children}</main>
+        <main className="px-4 py-6 md:px-8">{children}</main>
       </div>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="p-0">{nav(() => setOpen(false))}</SheetContent>

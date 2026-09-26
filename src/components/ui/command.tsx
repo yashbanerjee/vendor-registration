@@ -5,7 +5,7 @@ import { Search } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
-  return <CommandPrimitive className={cn("flex h-full w-full flex-col overflow-hidden rounded-xl bg-popover text-popover-foreground", className)} {...props} />
+  return <CommandPrimitive className={cn("flex h-full w-full flex-col overflow-hidden rounded-[3px] bg-popover text-popover-foreground", className)} {...props} />
 }
 
 export function CommandInput({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.Input>) {

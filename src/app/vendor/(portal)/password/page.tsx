@@ -16,8 +16,8 @@ export default function VendorPasswordPage() {
   return (
     <Card className="mx-auto max-w-md space-y-4 p-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">First sign-in</p>
-        <h1 className="mt-2 text-2xl font-semibold">Choose your password</h1>
+        <p className="text-xs font-semibold text-muted-foreground">First sign-in</p>
+        <h1 className="mt-1 text-xl font-medium">Choose your password</h1>
         <p className="mt-2 text-sm text-muted-foreground">Use the temporary password from your invitation email, then set a password only you know.</p>
       </div>
       <form className="space-y-3" onSubmit={async (event) => {

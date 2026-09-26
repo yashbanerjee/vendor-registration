@@ -4,9 +4,9 @@ const steps = ["An administrator invites a vendor by email.", "The vendor sets a
 export default function HowPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-16">
-      <h1 className="font-display text-4xl">How it works</h1>
+      <h1 className="text-3xl font-medium">How it works</h1>
       <ol className="mt-8 space-y-4">
-        {steps.map((step, index) => <li key={step} className="rounded-xl border border-border bg-card p-4"><span className="text-xs text-brass">0{index + 1}</span><p className="mt-1">{step}</p></li>)}
+        {steps.map((step, index) => <li key={step} className="rounded-lg border border-border bg-card p-4"><span className="text-xs font-bold text-primary">0{index + 1}</span><p className="mt-1">{step}</p></li>)}
       </ol>
     </main>
   )

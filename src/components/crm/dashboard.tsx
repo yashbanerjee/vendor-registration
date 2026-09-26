@@ -57,8 +57,8 @@ export function Dashboard({ portal, features, currency }: { portal: "admin" | "v
       return (
         <div className="space-y-4">
           <div>
-            <p className="text-sm text-muted-foreground">Welcome</p>
-            <h1 className="font-display text-3xl">{data.vendor?.legalName || "Your company"}</h1>
+            <p className="text-xs font-semibold text-muted-foreground">Welcome</p>
+            <h1 className="text-xl font-medium">{data.vendor?.legalName || "Your company"}</h1>
           </div>
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">Application status</p>
@@ -68,7 +68,7 @@ export function Dashboard({ portal, features, currency }: { portal: "admin" | "v
                 ? "Update the requested details and submit them for verification. Other workspace actions stay closed until the company is approved."
                 : "Your file is with the team. You can follow this status. Other actions open after approval."}
             </p>
-            {(status === "DRAFT" || status === "CHANGES_REQUESTED") && <Link href="/vendor/profile" className="mt-4 inline-flex rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">Open company details</Link>}
+            {(status === "DRAFT" || status === "CHANGES_REQUESTED") && <Link href="/vendor/profile" className="mt-4 inline-flex h-8 items-center rounded-[3px] bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)]">Open company details</Link>}
           </Card>
           {reviews.length > 0 && (
             <Card className="space-y-3 p-5">
@@ -96,8 +96,8 @@ export function Dashboard({ portal, features, currency }: { portal: "admin" | "v
     return (
       <div className="space-y-6">
         <div>
-          <p className="text-sm text-muted-foreground">Welcome</p>
-          <h1 className="font-display text-3xl">{data.vendor?.legalName || "Your company"}</h1>
+          <p className="text-xs font-semibold text-muted-foreground">Welcome</p>
+          <h1 className="text-xl font-medium">{data.vendor?.legalName || "Your company"}</h1>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map(([label, value]) => (
@@ -126,8 +126,8 @@ export function Dashboard({ portal, features, currency }: { portal: "admin" | "v
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Today</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Operations overview</h1>
+        <p className="text-xs font-semibold text-muted-foreground">Today</p>
+        <h1 className="text-xl font-medium">Operations overview</h1>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(([key, label]) => (
@@ -144,7 +144,7 @@ export function Dashboard({ portal, features, currency }: { portal: "admin" | "v
         <ChartCard title="Approvals">
           <BarChart data={data.approvals}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" /><XAxis dataKey="month" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="var(--primary)" radius={4} /></BarChart>
         </ChartCard>
-        {enabled.has("vendorRegistration") && <ChartCard title="Vendors by category"><BarChart data={data.categories.slice(0, 8)}><XAxis dataKey="name" hide /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="var(--brass)" radius={4} /></BarChart></ChartCard>}
+        {enabled.has("vendorRegistration") && <ChartCard title="Vendors by category"><BarChart data={data.categories.slice(0, 8)}><XAxis dataKey="name" hide /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="var(--primary)" radius={3} /></BarChart></ChartCard>}
         {enabled.has("events") && <ChartCard title="Vendors by event"><BarChart data={data.events}><XAxis dataKey="name" hide /><Tooltip /><Bar dataKey="count" fill="var(--primary)" radius={4} /></BarChart></ChartCard>}
       </div>
       <div className="grid gap-4 lg:grid-cols-3">

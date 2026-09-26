@@ -11,7 +11,7 @@ export const SheetClose = Dialog.Close
 export function SheetContent({ className, children, side = "left", ...props }: React.ComponentProps<typeof Dialog.Content> & { side?: "left" | "right" }) {
   return (
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+      <Dialog.Overlay className="fixed inset-0 z-50 bg-[#091e428a]" />
       <Dialog.Content
         className={cn(
           "fixed z-50 flex h-full w-[min(100%,20rem)] flex-col border-border bg-sidebar text-sidebar-foreground shadow-xl",

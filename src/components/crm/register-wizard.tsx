@@ -85,7 +85,7 @@ export function RegisterWizard({ mode = "public" }: { mode?: "public" | "continu
   return (
     <Card className="mx-auto max-w-3xl space-y-5 p-6">
       <div>
-        <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Vendor registration</p>
+        <p className="text-xs font-semibold text-muted-foreground">Vendor registration</p>
         <h1 className="mt-1 text-2xl font-semibold">Step {step + 1} of {steps.length}: {steps[step]}</h1>
       </div>
       <div className="h-1.5 rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div>

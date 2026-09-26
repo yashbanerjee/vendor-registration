@@ -14,9 +14,9 @@ const items = [
 export default function FeaturesPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-16">
-      <h1 className="font-display text-4xl">Features</h1>
+      <h1 className="text-3xl font-medium">Features</h1>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {items.map(([title, text]) => <article key={title} className="rounded-xl border border-border bg-card p-5"><h2 className="font-medium">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></article>)}
+        {items.map(([title, text]) => <article key={title} className="rounded-lg border border-border bg-card p-4"><h2 className="font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></article>)}
       </div>
     </main>
   )

@@ -192,8 +192,8 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
     <div className="space-y-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{portal === "admin" ? "Workspace" : "Vendor portal"}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">{config.title}</h1>
+          <p className="text-xs font-semibold text-muted-foreground">{portal === "admin" ? "Workspace" : "Vendor portal"}</p>
+          <h1 className="text-xl font-medium">{config.title}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{config.description}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -261,6 +261,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
       ) : (
         <>
           <Card className="hidden overflow-hidden md:block">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -287,6 +288,7 @@ export function ModuleScreen({ portal, moduleKey, user, currency = "AED" }: { po
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
           <div className="space-y-3 md:hidden">
             {rows.map((row) => (

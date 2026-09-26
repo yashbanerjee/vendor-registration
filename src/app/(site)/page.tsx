@@ -43,28 +43,28 @@ export default async function HomePage() {
   return (
     <main>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <section className="surface-grid border-b border-border">
+      <section className="border-b border-border bg-background">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-brass">United Arab Emirates</p>
-            <h1 className="font-display mt-4 max-w-3xl text-5xl leading-[1.05] tracking-tight md:text-6xl">{headline}</h1>
-            <p className="mt-6 max-w-xl text-lg text-muted-foreground">{sub}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/login" className="rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground">Vendor sign in</Link>
-              <Link href="/how-it-works" className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm">See the workflow</Link>
+            <p className="text-xs font-semibold text-primary">United Arab Emirates</p>
+            <h1 className="mt-3 max-w-3xl text-4xl font-medium leading-tight">{headline}</h1>
+            <p className="mt-4 max-w-xl text-base text-muted-foreground">{sub}</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Link href="/login" className="inline-flex h-8 items-center rounded-[3px] bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)]">Vendor sign in</Link>
+              <Link href="/how-it-works" className="inline-flex h-8 items-center rounded-[3px] border border-border bg-card px-3 text-sm font-medium hover:bg-muted">See the workflow</Link>
             </div>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-[var(--shadow-raised)]">
             <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground"><span>Workspace preview</span><span>Sample layout</span></div>
             <div className="grid grid-cols-2 gap-2">
               {["Vendors", "Documents", "RFQs", "Payments"].map((label) => (
-                <div key={label} className="rounded-xl border border-border bg-background p-3">
+                <div key={label} className="rounded-[3px] border border-border bg-background p-3">
                   <div className="text-xs text-muted-foreground">{label}</div>
-                  <div className="mt-2 h-2 w-16 rounded-full bg-primary/30" />
+                  <div className="mt-2 h-1.5 w-16 rounded-[3px] bg-primary/30" />
                 </div>
               ))}
             </div>
-            <div className="mt-3 h-24 rounded-xl bg-accent" />
+            <div className="mt-3 h-24 rounded-[3px] bg-accent" />
           </div>
         </div>
       </section>
@@ -72,7 +72,7 @@ export default async function HomePage() {
         <h2 className="font-display text-3xl">What the desk covers</h2>
         <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {features.map((feature) => (
-            <article key={feature.title} className="rounded-xl border border-border bg-card p-5">
+            <article key={feature.title} className="rounded-lg border border-border bg-card p-4 shadow-[var(--shadow-raised)]">
               <h3 className="font-medium">{feature.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">{feature.text}</p>
             </article>
@@ -84,8 +84,8 @@ export default async function HomePage() {
           <h2 className="font-display text-3xl">Vendor lifecycle</h2>
           <ol className="mt-8 grid gap-4 md:grid-cols-5">
             {steps.map((step, index) => (
-              <li key={step.title} className="rounded-xl border border-border bg-background p-4">
-                <div className="text-xs text-brass">0{index + 1}</div>
+              <li key={step.title} className="rounded-lg border border-border bg-background p-4">
+                <div className="text-xs font-bold text-primary">0{index + 1}</div>
                 <h3 className="mt-2 font-medium">{step.title}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{step.text}</p>
               </li>
@@ -114,7 +114,7 @@ export default async function HomePage() {
       <section className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-4 py-14 md:flex-row md:items-center">
           <h2 className="font-display text-3xl">Open the vendor portal or the staff desk.</h2>
-          <Link href="/login" className="rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground">Vendor sign in</Link>
+          <Link href="/login" className="inline-flex h-8 items-center rounded-[3px] bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-[var(--primary-hover)]">Vendor sign in</Link>
         </div>
       </section>
     </main>

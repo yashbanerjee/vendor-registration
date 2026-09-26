@@ -11,7 +11,7 @@ export function DropdownMenuContent({ className, ...props }: React.ComponentProp
     <Dropdown.Portal>
       <Dropdown.Content
         sideOffset={6}
-        className={cn("z-50 min-w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg", className)}
+        className={cn("z-50 min-w-44 rounded-[3px] border border-border bg-popover p-1 text-popover-foreground shadow-[var(--shadow-overlay)]", className)}
         {...props}
       />
     </Dropdown.Portal>
@@ -19,7 +19,7 @@ export function DropdownMenuContent({ className, ...props }: React.ComponentProp
 }
 
 export function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof Dropdown.Item>) {
-  return <Dropdown.Item className={cn("cursor-pointer rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent focus:bg-accent", className)} {...props} />
+  return <Dropdown.Item className={cn("cursor-pointer rounded-[3px] px-2 py-1.5 text-sm outline-none hover:bg-muted focus:bg-muted", className)} {...props} />
 }
 
 export function DropdownMenuSeparator() {
