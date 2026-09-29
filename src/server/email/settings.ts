@@ -64,7 +64,7 @@ export async function emailRuntimeConfig() {
     smtp: smtp?.enabled ? { ...(smtp.config as { host?: string; port?: number; user?: string; from?: string; secure?: boolean }), password: await secret(smtp.secretCipher) } : null,
     providerSecret: await secret(provider?.secretCipher),
     providerConfig: (provider?.config || {}) as Record<string, unknown>,
-    redisUrl: redis?.enabled ? await secret(redis.secretCipher) : "",
+    redisUrl: process.env.REDIS_URL?.trim() || (redis?.enabled ? await secret(redis.secretCipher) : ""),
     webhookSecret: await secret(webhook?.secretCipher),
   }
 }
