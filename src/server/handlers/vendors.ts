@@ -101,7 +101,7 @@ export async function recalcCompliance(vendorId: string) {
         (!doc.expiryDate || doc.expiryDate > now),
     ),
   ).length
-  const score = typeBySlug.length === 0 ? (docs.some((doc) => doc.status === "APPROVED") ? 100 : 0) : Math.round((met / typeBySlug.length) * 100)
+  const score = typeBySlug.length === 0 ? 100 : Math.round((met / typeBySlug.length) * 100)
   await prisma.vendor.update({ where: { id: vendorId }, data: { complianceScore: score } })
   return score
 }
@@ -218,11 +218,10 @@ export async function submitVendor(
   vendorId: string,
   user: PublicUser,
   meta: { ip?: string; userAgent?: string },
-  options?: { skipDocumentCheck?: boolean },
 ) {
   const vendor = await prisma.vendor.findFirst({
     where: { id: vendorId, deletedAt: null },
-    include: { categories: true, documents: true, customValues: true },
+    include: { categories: true, customValues: true },
   })
   if (!vendor) throw new ApiError(404, "Vendor not found.")
   if (!["DRAFT", "CHANGES_REQUESTED"].includes(vendor.status)) {
@@ -238,14 +237,6 @@ export async function submitVendor(
     const value = vendor.customValues.find((item) => item.fieldId === field.id)?.value
     if (value === undefined || value === null || value === "") {
       throw new ApiError(422, `${field.label} is required.`)
-    }
-  }
-  if (!options?.skipDocumentCheck && (await isFeatureEnabled("documents"))) {
-    const requiredTypes = await prisma.documentType.findMany({ where: { active: true, required: true } })
-    for (const type of requiredTypes) {
-      if (!vendor.documents.some((doc) => doc.documentTypeId === type.id)) {
-        throw new ApiError(422, `${type.name} is required before submission.`)
-      }
     }
   }
   await prisma.vendor.update({
@@ -336,7 +327,7 @@ export async function getVendor(req: Request, params: Record<string, string>) {
       contacts: true,
       categories: { include: { category: true } },
       services: { include: { service: true } },
-      documents: { include: { documentType: true, fileAsset: true }, orderBy: { createdAt: "desc" } },
+      documents: { include: { documentType: true, fileAsset: { omit: { content: true } } }, orderBy: { createdAt: "desc" } },
       paymentTerm: true,
       customValues: { include: { field: true } },
       notes: {

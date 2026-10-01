@@ -184,9 +184,10 @@ export function VendorProfile({ id, currency, portal = "admin" }: { id: string; 
           <RecordTable rows={vendor.services || []} empty="No services yet." rowKey={(row, index) => `${row.service.name}-${index}`} columns={[{ header: "Service", cell: (row) => row.service.name }]} />
         </TabsContent>
         <TabsContent value="Documents">
-          <RecordTable rows={vendor.documents || []} empty="No documents yet." rowKey={(row) => row.id} columns={[{ header: "Document", className: "font-medium", cell: (row) => row.title }, { header: "Status", cell: (row) => <Badge value={row.status} /> }, { header: "Expiry", cell: (row) => formatDate(row.expiryDate) }]} />
+          <p className="mb-3 text-sm text-muted-foreground">Files are optional. Company details are enough to submit and approve a vendor.</p>
+          <RecordTable rows={vendor.documents || []} empty="No documents yet. This does not block registration." rowKey={(row) => row.id} columns={[{ header: "Document", className: "font-medium", cell: (row) => row.title }, { header: "Status", cell: (row) => <Badge value={row.status} /> }, { header: "Expiry", cell: (row) => formatDate(row.expiryDate) }]} />
         </TabsContent>
-        <TabsContent value="Compliance"><Card className="p-5 text-sm">Score {vendor.complianceScore}%. Required documents are approved only while they are inside their expiry date.</Card></TabsContent>
+        <TabsContent value="Compliance"><Card className="p-5 text-sm">Score {vendor.complianceScore}%. Documents are optional. A score of 100% means no document type is required.</Card></TabsContent>
         <TabsContent value="Events"><RelatedTable rows={related.events} columns={[["code", "Code"], ["name", "Event"], ["client", "Client"], ["status", "Status"], ["startDate", "Starts"]]} /></TabsContent>
         <TabsContent value="RFQs"><RelatedTable rows={related.rfqs} columns={[["number", "RFQ"], ["title", "Requirement"], ["status", "Status"], ["deadline", "Deadline"]]} /></TabsContent>
         <TabsContent value="Quotations"><RelatedTable rows={related.quotations} money={currency} columns={[["number", "Quote"], ["total", "Total"], ["status", "Status"]]} /></TabsContent>

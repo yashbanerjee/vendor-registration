@@ -4,9 +4,9 @@ import { SiteFooter, SiteHeader } from "@/components/marketing/site-chrome"
 
 export default function AdminLoginPage() {
   return (
-    <div>
+    <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="px-4 pb-16"><Suspense><SignInForm portal="admin" /></Suspense></main>
+      <main className="flex-1 px-4"><Suspense><SignInForm portal="admin" /></Suspense></main>
       <SiteFooter />
     </div>
   )

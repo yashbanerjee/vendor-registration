@@ -167,32 +167,32 @@ export async function ensurePlatformDefaults() {
     ["Contract", "contract", false, true],
     ["Event Document", "event-document", false, false],
   ] as const
-  for (const [name, slug, required, hasExpiry] of documents) {
+  for (const [name, slug, , hasExpiry] of documents) {
     await prisma.documentType.upsert({
       where: { slug },
       update: {},
-      create: { name, slug, required, hasExpiry },
+      create: { name, slug, required: false, hasExpiry },
     })
   }
 
-  const categories: { name: string; slug: string; documents: string[] }[] = [
-    { name: "Catering", slug: "catering", documents: ["trade-license", "vat-certificate"] },
-    { name: "Security", slug: "security", documents: ["trade-license", "insurance"] },
-    { name: "AV", slug: "av", documents: ["trade-license"] },
-    { name: "Lighting", slug: "lighting", documents: ["trade-license"] },
-    { name: "Stage Production", slug: "stage-production", documents: ["trade-license", "insurance"] },
-    { name: "Fabrication", slug: "fabrication", documents: ["trade-license"] },
-    { name: "Exhibition Stand", slug: "exhibition-stand", documents: ["trade-license"] },
-    { name: "Transportation", slug: "transportation", documents: ["trade-license", "insurance"] },
-    { name: "Logistics", slug: "logistics", documents: ["trade-license"] },
-    { name: "Printing", slug: "printing", documents: ["trade-license"] },
-    { name: "Photography", slug: "photography", documents: ["trade-license"] },
-    { name: "Videography", slug: "videography", documents: ["trade-license"] },
-    { name: "Cleaning", slug: "cleaning", documents: ["trade-license"] },
-    { name: "Staffing", slug: "staffing", documents: ["trade-license", "insurance"] },
-    { name: "Decoration", slug: "decoration", documents: ["trade-license"] },
-    { name: "Furniture Rental", slug: "furniture-rental", documents: ["trade-license"] },
-    { name: "Entertainment", slug: "entertainment", documents: ["trade-license"] },
+  const categories: { name: string; slug: string }[] = [
+    { name: "Catering", slug: "catering" },
+    { name: "Security", slug: "security" },
+    { name: "AV", slug: "av" },
+    { name: "Lighting", slug: "lighting" },
+    { name: "Stage Production", slug: "stage-production" },
+    { name: "Fabrication", slug: "fabrication" },
+    { name: "Exhibition Stand", slug: "exhibition-stand" },
+    { name: "Transportation", slug: "transportation" },
+    { name: "Logistics", slug: "logistics" },
+    { name: "Printing", slug: "printing" },
+    { name: "Photography", slug: "photography" },
+    { name: "Videography", slug: "videography" },
+    { name: "Cleaning", slug: "cleaning" },
+    { name: "Staffing", slug: "staffing" },
+    { name: "Decoration", slug: "decoration" },
+    { name: "Furniture Rental", slug: "furniture-rental" },
+    { name: "Entertainment", slug: "entertainment" },
   ]
   for (const category of categories) {
     await prisma.vendorCategory.upsert({
@@ -201,8 +201,18 @@ export async function ensurePlatformDefaults() {
       create: {
         name: category.name,
         slug: category.slug,
-        requiredDocumentTypes: category.documents,
+        requiredDocumentTypes: [],
       },
+    })
+  }
+
+  const documentsOptional = await prisma.systemSetting.findUnique({ where: { key: "documents.optional" } })
+  if (!documentsOptional) {
+    await prisma.documentType.updateMany({ data: { required: false } })
+    await prisma.vendorCategory.updateMany({ data: { requiredDocumentTypes: [] } })
+    await prisma.vendor.updateMany({ data: { complianceScore: 100 } })
+    await prisma.systemSetting.create({
+      data: { key: "documents.optional", value: true, group: "documents" },
     })
   }
 

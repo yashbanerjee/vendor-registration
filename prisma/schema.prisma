@@ -1199,6 +1199,7 @@ model FileAsset {
   storedName String           @unique
   mimeType   String
   sizeBytes  Int
+  content    Bytes?
   public     Boolean          @default(false)
   vendorId   String?
   createdBy  String?

@@ -86,7 +86,7 @@ export async function listDocuments(req: Request) {
     prisma.vendorDocument.count({ where }),
     prisma.vendorDocument.findMany({
       where,
-      include: { vendor: { select: { id: true, legalName: true, vendorCode: true } }, documentType: true, fileAsset: true },
+      include: { vendor: { select: { id: true, legalName: true, vendorCode: true } }, documentType: true, fileAsset: { omit: { content: true } } },
       orderBy: { createdAt: "desc" },
       skip: query.skip,
       take: query.pageSize,

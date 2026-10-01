@@ -302,7 +302,7 @@ export async function upload(req: Request) {
 }
 
 export async function downloadFile(_req: Request, params: Record<string, string>) {
-  const asset = await prisma.fileAsset.findUnique({ where: { id: params.id } })
+  const asset = await prisma.fileAsset.findUnique({ where: { id: params.id }, omit: { content: true } })
   if (!asset) throw new ApiError(404, "File not found.")
   if (!asset.public) {
     const user = await requireUser()

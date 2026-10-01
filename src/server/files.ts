@@ -44,25 +44,33 @@ export async function saveUpload(file: File, options?: { public?: boolean; vendo
   }
   const bytes = Buffer.from(await file.arrayBuffer())
   if (!looksValid(bytes, ext)) throw new ApiError(415, "The file contents do not match the expected type.")
-  await mkdir(ROOT, { recursive: true })
   const storedName = `${randomBytes(16).toString("hex")}.${ext}`
-  await writeFile(path.join(ROOT, storedName), bytes)
+  try {
+    await mkdir(ROOT, { recursive: true })
+    await writeFile(path.join(ROOT, storedName), bytes)
+  } catch {
+    // The database copy is the copy that survives a host without a persistent disk.
+  }
   const asset = await prisma.fileAsset.create({
     data: {
       fileName: path.basename(file.name).slice(0, 180),
       storedName,
       mimeType: mime,
       sizeBytes: bytes.length,
+      content: bytes,
       public: Boolean(options?.public),
       vendorId: options?.vendorId || null,
       createdBy: options?.userId || null,
     },
+    omit: { content: true },
   })
   return asset
 }
 
 export async function readAsset(storedName: string) {
   if (!/^[a-f0-9]{32}\.[a-z0-9]+$/.test(storedName)) throw new ApiError(404, "File not found.")
+  const asset = await prisma.fileAsset.findUnique({ where: { storedName }, select: { content: true } })
+  if (asset?.content) return Buffer.from(asset.content)
   try {
     return await readFile(path.join(ROOT, storedName))
   } catch {

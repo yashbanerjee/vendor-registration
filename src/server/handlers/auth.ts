@@ -63,7 +63,6 @@ export async function login(req: Request) {
     .parse(await readJson(req))
   const meta = clientMeta(req)
   rateLimit(`login:${meta.ip || "local"}:${body.email.toLowerCase()}`, 8, 15 * 60 * 1000)
-  await ensurePlatformDefaults()
   const identity = await identityLogin(body.email, body.password)
   const user = await prisma.user.findFirst({ where: { OR: [{ identityUserId: identity.identityUserId }, { email: body.email.toLowerCase() }] } })
   if (!user || user.deletedAt || user.status !== "ACTIVE") {

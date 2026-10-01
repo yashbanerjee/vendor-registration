@@ -1,5 +1,12 @@
 import { prisma } from "@/server/db"
 import { ApiError } from "@/server/errors"
+import {
+  changeLocalIdentityPassword,
+  loginWithIdentity,
+  provisionLocalIdentity,
+  setLocalIdentityPassword,
+  setLocalIdentityStatus,
+} from "@/server/identity/local"
 
 const MANAGED = "identity-managed"
 
@@ -7,13 +14,20 @@ export function managedPassword() {
   return MANAGED
 }
 
+async function remoteBase() {
+  const row = await prisma.systemSetting.findUnique({ where: { key: "identity.baseUrl" } })
+  const value = typeof row?.value === "string" ? row.value.trim() : ""
+  if (!value || value.includes("127.0.0.1") || value.includes("localhost")) return ""
+  return value
+}
+
 async function endpoint() {
   const [base, key] = await Promise.all([
-    prisma.systemSetting.findUnique({ where: { key: "identity.baseUrl" } }),
+    remoteBase(),
     prisma.systemSetting.findUnique({ where: { key: "identity.serviceKey" } }),
   ])
   return {
-    base: typeof base?.value === "string" && base.value ? base.value : "http://127.0.0.1:4010",
+    base: base || "http://127.0.0.1:4010",
     key: typeof key?.value === "string" ? key.value : "",
   }
 }
@@ -38,22 +52,28 @@ async function identityRequest<T>(path: string, body?: unknown, method = "POST")
 }
 
 export async function identityLogin(email: string, password: string, code?: string) {
-  return identityRequest<{ identityUserId: string; accessToken: string; refreshToken: string }>("/auth/login", { email, password, code })
+  if (!(await remoteBase())) return loginWithIdentity(email, password, code)
+  const result = await identityRequest<{ identityUserId: string }>("/auth/login", { email, password, code })
+  return { identityUserId: result.identityUserId }
 }
 
 export async function provisionIdentity(email: string, password: string) {
+  if (!(await remoteBase())) return provisionLocalIdentity(email, password)
   const result = await identityRequest<{ identityUserId: string }>("/internal/accounts", { email, password })
   return result.identityUserId
 }
 
 export async function identityChangePassword(identityUserId: string, currentPassword: string, password: string) {
+  if (!(await remoteBase())) return changeLocalIdentityPassword(identityUserId, currentPassword, password)
   await identityRequest("/internal/password", { identityUserId, currentPassword, password })
 }
 
 export async function identitySetPassword(identityUserId: string, password: string) {
+  if (!(await remoteBase())) return setLocalIdentityPassword(identityUserId, password)
   await identityRequest("/internal/set-password", { identityUserId, password })
 }
 
 export async function identitySetStatus(identityUserId: string, status: string) {
+  if (!(await remoteBase())) return setLocalIdentityStatus(identityUserId, status)
   await identityRequest("/internal/status", { identityUserId, status })
 }

@@ -129,6 +129,7 @@ export function RegisterWizard({ mode = "public" }: { mode?: "public" | "continu
       )}
       {step === 5 && (
         <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Documents are optional. Continue without a file if you do not have one yet.</p>
           <Field label="Document type"><Select value={form.documentTypeId || ""} onChange={(event) => set("documentTypeId", event.target.value)}><option value="">Select</option>{options.documentTypes.map((item) => <option key={item.id} value={item.id}>{item.name}{item.required ? " (required)" : ""}</option>)}</Select></Field>
           <Input type="file" onChange={(event) => {
             const file = event.target.files?.[0]
